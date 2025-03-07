@@ -1,46 +1,113 @@
-# Getting Started with Create React App
+# Cardiac Electrophysiology Learning Platform
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+An interactive web application for teaching cardiac electrophysiology concepts to students in biomedical engineering and medical sciences.
 
-## Available Scripts
+## Project Overview
 
-In the project directory, you can run:
+This browser-based interactive application serves as an educational tool for understanding cardiac electrophysiology. It provides visual, interactive simulations of action potential generation and propagation, effects of ion channel properties, tissue-level activation patterns, and arrhythmia mechanisms.
 
-### `npm start`
+## Educational Context
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+- **Target Audience**: Students with a background in biomedical engineering or medical sciences
+- **Purpose**: Alternative to more complex computational tools like OpenCARP, focusing on educational clarity rather than complete biophysical accuracy
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## Features
 
-### `npm test`
+### Single Cell Electrophysiology Module
+- Interactive visualization of action potential generation
+- Parameter sliders for key ion channel conductances
+- Side-by-side comparison between normal and pathological conditions
+- Visual representation of ion movements during different AP phases
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Tissue Propagation Module
+- 2D grid simulation with color-coded activation visualization
+- Controls for tissue properties (conductivity)
+- Multiple visualization modes (LATs, APDs, wavefront propagation)
 
-### `npm run build`
+### Arrhythmia Mechanism Explorer
+- S1-S2 pacing protocol with adjustable timing
+- Introduction of repolarization gradients, conduction obstacles, and fibrosis patterns
+- Visual identification of conduction block and reentry circuits
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Technical Approach
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Architecture
+- **Frontend Framework**: React with TypeScript
+- **State Management**: Redux with Redux Toolkit
+- **Styling**: Tailwind CSS
+- **Visualization**: D3.js for plots, HTML Canvas for 2D simulations
+- **Simulation Engine**: JavaScript with Web Workers for performance
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Models
+1. **Simplified Cellular Models**: FitzHugh-Nagumo model (2-variable system)
+2. **Tissue Model**: 2D reaction-diffusion system on a grid
 
-### `npm run eject`
+## Getting Started
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+### Prerequisites
+- Node.js (version 14 or higher)
+- npm (version 6 or higher)
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Installation
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+1. Clone the repository:
+```
+git clone https://github.com/yourusername/cardiac-ep-platform.git
+cd cardiac-ep-platform
+```
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+2. Install dependencies:
+```
+npm install
+```
 
-## Learn More
+3. Start the development server:
+```
+npm start
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+The application should now be running on [http://localhost:3000](http://localhost:3000).
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Usage
+
+1. Navigate through the different modules using the top navigation bar:
+   - **Cell**: Explore single cell action potential dynamics
+   - **Tissue**: Visualize propagation across cardiac tissue
+   - **Arrhythmia**: Investigate mechanisms of arrhythmias
+
+2. Use the interactive controls to adjust parameters and observe their effects on simulations
+
+## Development
+
+### Project Structure
+
+```
+src/
+├── components/        # React components
+│   ├── Cell/          # Single cell module components
+│   ├── Tissue/        # Tissue module components 
+│   └── Arrhythmia/    # Arrhythmia module components
+├── models/            # Simulation models
+├── store/             # Redux store and slices
+├── utils/             # Utility functions
+└── hooks/             # Custom React hooks
+```
+
+### Building for Production
+
+To build the application for production:
+
+```
+npm run build
+```
+
+This creates a `build` directory with optimized production files.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- FitzHugh-Nagumo model for providing a simplified representation of cardiac action potentials
+- OpenCARP project for inspiration on cardiac electrophysiology simulation

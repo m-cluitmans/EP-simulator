@@ -36,3 +36,9 @@
     transform: rotate(360deg);
   }
 }
+
+/* App-specific styles */
+.action-potential-plot {
+  max-width: 100%;
+  height: auto;
+}

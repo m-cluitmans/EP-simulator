@@ -183,18 +183,72 @@ export function s1s2StimulusProtocol(
 }
 
 /**
+ * Apply a circular conduction obstacle to a tissue
+ * 
+ * @param tissue Current tissue state
+ * @param centerRow Center row of the obstacle
+ * @param centerCol Center column of the obstacle
+ * @param radius Radius of the circular obstacle
+ * @returns New tissue with obstacle applied
+ */
+export function applyCircularObstacle(
+  tissue: TissueData,
+  centerRow: number,
+  centerCol: number,
+  radius: number
+): TissueData {
+  const { v, h, time } = tissue;
+  const rows = v.length;
+  const cols = v[0].length;
+  
+  // Create deep copies of the arrays
+  const newV = v.map(row => [...row]);
+  const newH = h.map(row => [...row]);
+  
+  // Apply the circular obstacle
+  for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+      // Calculate distance from center
+      const distance = Math.sqrt(Math.pow(i - centerRow, 2) + Math.pow(j - centerCol, 2));
+      
+      // If within the radius, set to zero conductivity
+      if (distance <= radius) {
+        // Set to resting values that won't change
+        newV[i][j] = 0.0;  // Resting voltage
+        newH[i][j] = 0.0;  // Inactivated gate (won't allow current flow)
+      }
+    }
+  }
+  
+  return {
+    v: newV,
+    h: newH,
+    time
+  };
+}
+
+/**
  * Perform a single time step in the tissue simulation
  * 
  * @param tissue Current tissue state
  * @param params Tissue parameters
  * @param applyStimulus Function to apply stimulus
+ * @param hasObstacle Whether the tissue has a conduction obstacle
+ * @param obstacleCenter Center coordinates of obstacle {row, col}
+ * @param obstacleRadius Radius of the obstacle
+ * @param hasRepolarizationGradient Whether to apply repolarization gradient
+ * @param tauCloseValues Tau close values for gradient {left, right}
  * @returns Updated tissue state
  */
 export function stepTissue(
   tissue: TissueData,
   params: TissueParams = DEFAULT_TISSUE_PARAMS,
-  applyStimulus: (tissue: TissueData, time: number) => TissueData = 
-    (t) => t
+  applyStimulus: (tissue: TissueData, time: number) => TissueData = (t) => t,
+  hasObstacle: boolean = false,
+  obstacleCenter: {row: number, col: number} = {row: 0, col: 0},
+  obstacleRadius: number = 10,
+  hasRepolarizationGradient: boolean = false,
+  tauCloseValues: {left: number, right: number} = {left: 80, right: 80}
 ): TissueData {
   const { v, h, time } = tissue;
   const { 
@@ -224,6 +278,16 @@ export function stepTissue(
   // Compute the new values using the reaction-diffusion equation
   for (let i = 0; i < rows; i++) {
     for (let j = 0; j < cols; j++) {
+      // If we have an obstacle and this point is inside it, keep values fixed
+      if (hasObstacle) {
+        const distance = Math.sqrt(Math.pow(i - obstacleCenter.row, 2) + Math.pow(j - obstacleCenter.col, 2));
+        if (distance <= obstacleRadius) {
+          newV[i][j] = stimulatedTissue.v[i][j];
+          newH[i][j] = stimulatedTissue.h[i][j];
+          continue;
+        }
+      }
+      
       // Current values
       const volt = stimulatedTissue.v[i][j];
       const gate = stimulatedTissue.h[i][j];
@@ -252,11 +316,19 @@ export function stepTissue(
       // Ensure voltage stays within bounds [0,1]
       newV[i][j] = Math.min(1.0, Math.max(0.0, newV[i][j]));
       
+      // Use repolarization gradient if enabled
+      let localTauClose = tau_close;
+      if (hasRepolarizationGradient) {
+        // Linearly interpolate tau_close value based on column position
+        const position = j / (cols - 1);  // 0 at left, 1 at right
+        localTauClose = tauCloseValues.left + position * (tauCloseValues.right - tauCloseValues.left);
+      }
+      
       // Update inactivation gate
       if (volt < v_gate) {
         newH[i][j] = gate + dt * ((1 - gate) / tau_open);
       } else {
-        newH[i][j] = gate + dt * (-gate / tau_close);
+        newH[i][j] = gate + dt * (-gate / localTauClose);
       }
       
       // Ensure gate variable stays within bounds [0,1]
@@ -278,17 +350,36 @@ export function stepTissue(
  * @param duration Total simulation duration (default 1000 for MS model)
  * @param stimulusFn Function to apply stimulus
  * @param saveInterval How often to save snapshots
+ * @param hasObstacle Whether to include a conduction obstacle
+ * @param obstacleCenter Center of the obstacle {row, col}
+ * @param obstacleRadius Radius of the obstacle
+ * @param hasRepolarizationGradient Whether to apply repolarization gradient
+ * @param tauCloseValues Tau close values for gradient {left, right}
  * @returns Simulation results
  */
 export function simulateTissue(
   params: TissueParams = DEFAULT_TISSUE_PARAMS,
   duration: number = 1000,  // Increased to 1000 for Mitchell Schaeffer model
-  stimulusFn: (tissue: TissueData, time: number) => TissueData = 
-    (t) => t,
-  saveInterval: number = 2.0  // Increased to 2.0 to reduce memory usage with longer simulation
+  stimulusFn: (tissue: TissueData, time: number) => TissueData = (t) => t,
+  saveInterval: number = 2.0,  // Increased to 2.0 to reduce memory usage with longer simulation
+  hasObstacle: boolean = false,
+  obstacleCenter: {row: number, col: number} = {row: 0, col: 0},
+  obstacleRadius: number = 10,
+  hasRepolarizationGradient: boolean = false,
+  tauCloseValues: {left: number, right: number} = {left: 80, right: 80}
 ): TissueSimulationResults {
   // Initialize tissue
   let tissue = initializeTissue(params);
+  
+  // Apply circular obstacle if enabled
+  if (hasObstacle) {
+    tissue = applyCircularObstacle(
+      tissue, 
+      obstacleCenter.row, 
+      obstacleCenter.col, 
+      obstacleRadius
+    );
+  }
   
   // Initialize results
   const results: TissueSimulationResults = {
@@ -312,11 +403,28 @@ export function simulateTissue(
   
   while (tissue.time < duration) {
     // Step the simulation
-    tissue = stepTissue(tissue, params, stimulusFn);
+    tissue = stepTissue(
+      tissue, 
+      params, 
+      stimulusFn,
+      hasObstacle,
+      obstacleCenter,
+      obstacleRadius,
+      hasRepolarizationGradient,
+      tauCloseValues
+    );
     
     // Track activation times and APD
     for (let i = 0; i < params.rows; i++) {
       for (let j = 0; j < params.cols; j++) {
+        // Skip obstacle cells
+        if (hasObstacle) {
+          const distance = Math.sqrt(Math.pow(i - obstacleCenter.row, 2) + Math.pow(j - obstacleCenter.col, 2));
+          if (distance <= obstacleRadius) {
+            continue;
+          }
+        }
+        
         // Detect activation
         if (!isActivated[i][j] && tissue.v[i][j] > activationThreshold) {
           isActivated[i][j] = true;

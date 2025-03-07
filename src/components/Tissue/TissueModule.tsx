@@ -46,6 +46,12 @@ const TissueModule: React.FC = () => {
   // State for selected cell
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
   
+  // Repolarization gradient state
+  const [repolarizationGradient, setRepolarizationGradient] = useState({
+    left: 60,  // Default left side tau_close value
+    right: 100 // Default right side tau_close value
+  });
+  
   // Animation state
   const [isAnimating, setIsAnimating] = useState(false);
   const [animationSpeed, setAnimationSpeed] = useState(1); // frames per second
@@ -167,41 +173,33 @@ const TissueModule: React.FC = () => {
         };
       }
       
-      // Handle obstacles if enabled
+      // Get obstacle settings
       const obstacleEnabled = simulationParams.conductionObstacle as boolean || false;
       const obstacleCoords = simulationParams.obstacleCoordinates as any || { 
-        row: 40, 
-        col: 40, 
-        width: 20, 
-        height: 20 
+        row: Math.floor(tissueParams.rows / 2), 
+        col: Math.floor(tissueParams.cols / 2), 
+        width: 15, 
+        height: 15 
       };
       
-      // Create modified tissue for obstacles
-      let initialTissue = initializeTissue(tissueParams);
-      
-      if (obstacleEnabled) {
-        // Modify tissue diffusion by setting cells within obstacle to non-conductive
-        const modifiedTissue = { ...initialTissue };
-        
-        // This will be implemented in a future version with true obstacle creation
-        // For now, we'll just change the initial conditions in the obstacle region
-        
-        initialTissue = modifiedTissue;
-      }
-      
-      // Apply diffusion gradient if enabled
+      // Get repolarization gradient settings
       const gradientEnabled = simulationParams.diffusionGradient as boolean || false;
-      if (gradientEnabled) {
-        // This would adjust the diffusion coefficient across the tissue
-        // Implementation will be added in the future
-      }
+      const gradientValues = simulationParams.repolarizationGradient as any || {
+        left: 60,
+        right: 100
+      };
       
-      // Run the simulation
+      // Run the simulation with the new parameters
       return simulateTissue(
         tissueParams,
         duration,
         stimulationFunction,
-        1.0 // Save interval
+        2.0, // Save interval
+        obstacleEnabled,
+        { row: obstacleCoords.row, col: obstacleCoords.col },
+        obstacleCoords.width / 2, // Radius is half of width
+        gradientEnabled,
+        { left: gradientValues.left, right: gradientValues.right }
       );
     }
   );
@@ -232,7 +230,7 @@ const TissueModule: React.FC = () => {
     }
   }, [simulationInProgress]);
   
-  // Run simulation with current parameters
+  // Run current simulation
   const runTissueSimulation = () => {
     // Stop any ongoing animation
     stopAnimation();
@@ -251,6 +249,12 @@ const TissueModule: React.FC = () => {
     // Update tissue parameters with cell parameters
     dispatch(updateTissueParameters(cellParams));
     
+    // Calculate obstacle center
+    const obstacleCenter = {
+      row: Math.floor(tissueSize.rows / 2),
+      col: Math.floor(tissueSize.cols / 2)
+    };
+    
     // Create simulation parameters that use the updated values directly
     const simulationParams = {
       ...params,
@@ -265,9 +269,16 @@ const TissueModule: React.FC = () => {
       s2Duration: stimulusParams.s2Duration,
       s2Amplitude: stimulusParams.s2Amplitude,
       simulationDuration: stimulusParams.simulationDuration,
+      
+      // Tissue features
       conductionObstacle,
-      obstacleCoordinates,
-      diffusionGradient
+      obstacleCoordinates: {
+        ...obstacleCoordinates,
+        row: obstacleCenter.row,
+        col: obstacleCenter.col
+      },
+      diffusionGradient,
+      repolarizationGradient
     };
     
     // Run the simulation
@@ -628,18 +639,18 @@ const TissueModule: React.FC = () => {
                     Start Time: {stimulusParams.s1StartTime.toFixed(1)}
                   </label>
                   <div className="flex items-center">
-                    <span className="text-xs text-gray-500 mr-2">0.1</span>
+                    <span className="text-xs text-gray-500 mr-2">0</span>
                     <input
                       id="s1-start"
                       type="range"
-                      min="0.1"
-                      max="10"
-                      step="0.1"
+                      min="0"
+                      max="500"
+                      step="5"
                       value={stimulusParams.s1StartTime}
                       onChange={(e) => handleStimulusParamChange('s1StartTime', parseFloat(e.target.value))}
                       className="w-full"
                     />
-                    <span className="text-xs text-gray-500 ml-2">10.0</span>
+                    <span className="text-xs text-gray-500 ml-2">500</span>
                   </div>
                 </div>
                 
@@ -653,13 +664,13 @@ const TissueModule: React.FC = () => {
                       id="s1-duration"
                       type="range"
                       min="0.1"
-                      max="5"
-                      step="0.1"
+                      max="20"
+                      step="0.5"
                       value={stimulusParams.s1Duration}
                       onChange={(e) => handleStimulusParamChange('s1Duration', parseFloat(e.target.value))}
                       className="w-full"
                     />
-                    <span className="text-xs text-gray-500 ml-2">5.0</span>
+                    <span className="text-xs text-gray-500 ml-2">20.0</span>
                   </div>
                 </div>
               </div>
@@ -674,18 +685,18 @@ const TissueModule: React.FC = () => {
                       Start Time: {stimulusParams.s2StartTime.toFixed(1)}
                     </label>
                     <div className="flex items-center">
-                      <span className="text-xs text-gray-500 mr-2">10.0</span>
+                      <span className="text-xs text-gray-500 mr-2">0</span>
                       <input
                         id="s2-start"
                         type="range"
-                        min="10"
-                        max="50"
-                        step="1"
+                        min="0"
+                        max="500"
+                        step="5"
                         value={stimulusParams.s2StartTime}
                         onChange={(e) => handleStimulusParamChange('s2StartTime', parseFloat(e.target.value))}
                         className="w-full"
                       />
-                      <span className="text-xs text-gray-500 ml-2">50.0</span>
+                      <span className="text-xs text-gray-500 ml-2">500</span>
                     </div>
                   </div>
                   
@@ -733,35 +744,107 @@ const TissueModule: React.FC = () => {
             </div>
           </div>
           
-          {/* Tissue Features */}
+          {/* Advanced settings (placeholders for future implementation) */}
           <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
             <h3 className="text-lg font-semibold mb-4">Tissue Features</h3>
-            
-            <div className="space-y-3">
-              <div className="flex items-center">
-                <input
-                  id="conduction-obstacle"
-                  type="checkbox"
-                  checked={conductionObstacle}
-                  onChange={handleToggleConductionObstacle}
-                  className="h-4 w-4 text-primary"
-                />
-                <label htmlFor="conduction-obstacle" className="ml-2 text-sm text-gray-700">
-                  Enable Conduction Obstacle
-                </label>
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center mb-2">
+                  <input
+                    id="conduction-obstacle"
+                    type="checkbox"
+                    checked={conductionObstacle}
+                    onChange={handleToggleConductionObstacle}
+                    className="h-4 w-4 text-primary"
+                  />
+                  <label htmlFor="conduction-obstacle" className="ml-2 text-sm font-medium text-gray-700">
+                    Enable Conduction Obstacle
+                  </label>
+                </div>
+                {conductionObstacle && (
+                  <div className="ml-6 space-y-2">
+                    <p className="text-xs text-gray-600">
+                      Adds a circular region with no conductivity in the center of the tissue.
+                    </p>
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">
+                        Obstacle Radius: {obstacleCoordinates.width}
+                      </label>
+                      <input
+                        type="range"
+                        min="5"
+                        max="30"
+                        step="1"
+                        value={obstacleCoordinates.width}
+                        onChange={(e) => handleUpdateObstacle({
+                          ...obstacleCoordinates,
+                          width: parseInt(e.target.value),
+                          height: parseInt(e.target.value)
+                        })}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
               
-              <div className="flex items-center">
-                <input
-                  id="diffusion-gradient"
-                  type="checkbox"
-                  checked={diffusionGradient}
-                  onChange={handleToggleDiffusionGradient}
-                  className="h-4 w-4 text-primary"
-                />
-                <label htmlFor="diffusion-gradient" className="ml-2 text-sm text-gray-700">
-                  Enable Diffusion Gradient
-                </label>
+              <div>
+                <div className="flex items-center mb-2">
+                  <input
+                    id="repolarization-gradient"
+                    type="checkbox"
+                    checked={diffusionGradient}
+                    onChange={handleToggleDiffusionGradient}
+                    className="h-4 w-4 text-primary"
+                  />
+                  <label htmlFor="repolarization-gradient" className="ml-2 text-sm font-medium text-gray-700">
+                    Enable Repolarization Gradient
+                  </label>
+                </div>
+                {diffusionGradient && (
+                  <div className="ml-6 space-y-2">
+                    <p className="text-xs text-gray-600">
+                      Creates a gradient of tau_close values from left to right across the tissue,
+                      affecting repolarization time.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-sm text-gray-700 mb-1">
+                          Left Value: {repolarizationGradient.left.toFixed(0)}
+                        </label>
+                        <input
+                          type="range"
+                          min="40"
+                          max="120"
+                          step="5"
+                          value={repolarizationGradient.left}
+                          onChange={(e) => setRepolarizationGradient(prev => ({
+                            ...prev,
+                            left: parseInt(e.target.value)
+                          }))}
+                          className="w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-700 mb-1">
+                          Right Value: {repolarizationGradient.right.toFixed(0)}
+                        </label>
+                        <input
+                          type="range"
+                          min="40"
+                          max="120"
+                          step="5"
+                          value={repolarizationGradient.right}
+                          onChange={(e) => setRepolarizationGradient(prev => ({
+                            ...prev,
+                            right: parseInt(e.target.value)
+                          }))}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

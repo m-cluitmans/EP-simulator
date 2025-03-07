@@ -13,6 +13,7 @@ import {
 import ActionPotentialPlot from './components/Cell/ActionPotentialPlot';
 import CellModule from './components/Cell/CellModule';
 import TissueModule from './components/Tissue/TissueModule';
+import ArrhythmiaModule from './components/Arrhythmia/ArrhythmiaModule';
 
 // Application tabs
 enum AppTab {
@@ -92,13 +93,7 @@ function App() {
         return <TissueModule />;
         
       case AppTab.ARRHYTHMIA:
-        return (
-          <div className="p-4">
-            <h2 className="text-2xl font-bold mb-4">Arrhythmia Mechanisms</h2>
-            <p className="mb-6">This module is under construction. Coming soon!</p>
-            {/* Placeholder for ArrhythmiaModule component */}
-          </div>
-        );
+        return <ArrhythmiaModule />;
         
       case AppTab.ABOUT:
         return (

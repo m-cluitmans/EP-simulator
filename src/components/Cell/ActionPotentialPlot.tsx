@@ -1,12 +1,12 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
-import { FhnResults } from '../../models/FitzHughNagumoModel';
+import { MsResults } from '../../models/MitchellSchaefferModel';
 
 interface ActionPotentialPlotProps {
-  data: FhnResults;
+  data: MsResults;
   width?: number;
   height?: number;
-  comparisonData?: FhnResults | null;
+  comparisonData?: MsResults | null;
   showComparison?: boolean;
   highlightPhases?: boolean;
 }
@@ -21,7 +21,7 @@ interface APPhase {
 }
 
 /**
- * Component for plotting action potentials from the FitzHugh-Nagumo model
+ * Component for plotting action potentials from the Mitchell Schaeffer model
  */
 const ActionPotentialPlot: React.FC<ActionPotentialPlotProps> = ({
   data,
@@ -44,335 +44,322 @@ const ActionPotentialPlot: React.FC<ActionPotentialPlotProps> = ({
     content: ''
   });
   
-  // Identify "regions" of the FitzHugh-Nagumo model dynamics
-  // Using more appropriate terminology for this simplified model
-  const identifyPhases = (data: FhnResults): APPhase[] => {
-    const { v } = data;
+  // Identify phases of the Mitchell Schaeffer model action potential
+  const identifyPhases = (data: MsResults): APPhase[] => {
+    const { v, h } = data;
     const phases: APPhase[] = [];
     
-    // Find the resting/initial state
-    let excitationStart = 0;
-    for (let i = 1; i < v.length; i++) {
-      if (v[i] > v[i-1] && v[i] > -0.3) {
-        excitationStart = i;
+    // Find resting state - beginning of data
+    const restingPhaseEnd = Math.min(20, Math.floor(v.length / 10));
+    
+    phases.push({
+      name: 'Resting',
+      startIdx: 0,
+      endIdx: restingPhaseEnd,
+      color: 'rgba(200, 220, 240, 0.5)',
+      description: 'Resting membrane potential - gates are open, cell is at equilibrium'
+    });
+    
+    // Find upstroke/depolarization
+    let upstrokeStart = restingPhaseEnd;
+    for (let i = restingPhaseEnd + 1; i < v.length; i++) {
+      if (v[i] > 0.1) {
+        upstrokeStart = i;
         break;
       }
     }
     
-    // Find fast depolarization start (steepest upstroke)
-    let fastDepolarizationStart = excitationStart;
-    let maxDvDt = 0;
-    for (let i = excitationStart; i < v.length - 1; i++) {
-      const dvdt = v[i+1] - v[i];
-      if (dvdt > maxDvDt) {
-        maxDvDt = dvdt;
-        fastDepolarizationStart = i;
-      }
-      if (v[i] > 0.5) break; // Stop once we're well into the upstroke
-    }
-    
-    // Find peak (end of depolarization)
-    let peak = fastDepolarizationStart;
-    for (let i = fastDepolarizationStart + 1; i < v.length; i++) {
-      if (v[i] < v[i-1]) {
-        peak = i;
+    // Find the end of upstroke (peak)
+    let upstrokeEnd = upstrokeStart;
+    for (let i = upstrokeStart + 1; i < v.length; i++) {
+      if (v[i] > 0.9) {
+        upstrokeEnd = i;
         break;
       }
     }
     
-    // Find start of recovery/repolarization
-    let repolarizationStart = peak;
-    const peakValue = v[peak];
-    for (let i = peak + 1; i < v.length; i++) {
-      if (v[i] < peakValue * 0.9) {
-        repolarizationStart = i;
+    phases.push({
+      name: 'Upstroke',
+      startIdx: upstrokeStart,
+      endIdx: upstrokeEnd,
+      color: 'rgba(255, 200, 200, 0.5)',
+      description: 'Rapid depolarization - voltage increases quickly'
+    });
+    
+    // Find the plateau/early repolarization
+    let plateauEnd = upstrokeEnd;
+    for (let i = upstrokeEnd + 1; i < v.length; i++) {
+      if (v[i] < 0.8) {
+        plateauEnd = i;
         break;
       }
     }
     
-    // Find return to resting state (zero crossing during repolarization)
-    let restingReturn = repolarizationStart;
-    for (let i = repolarizationStart + 1; i < v.length; i++) {
-      if (v[i] < 0) {
-        restingReturn = i;
+    phases.push({
+      name: 'Plateau',
+      startIdx: upstrokeEnd,
+      endIdx: plateauEnd,
+      color: 'rgba(255, 240, 200, 0.5)',
+      description: 'Plateau phase - voltage remains elevated'
+    });
+    
+    // Find repolarization phase
+    let repolarizationEnd = plateauEnd;
+    for (let i = plateauEnd + 1; i < v.length; i++) {
+      if (v[i] < 0.1) {
+        repolarizationEnd = i;
         break;
       }
     }
     
-    // Get final resting phase
-    let finalResting = Math.min(v.length - 1, restingReturn + Math.floor((v.length - restingReturn) * 0.3));
+    phases.push({
+      name: 'Repolarization',
+      startIdx: plateauEnd,
+      endIdx: repolarizationEnd,
+      color: 'rgba(200, 255, 200, 0.5)',
+      description: 'Repolarization - voltage returns to resting level'
+    });
     
-    // Add phases if we successfully identified them
-    if (excitationStart > 0) {
-      // Initial resting state
-      phases.push({
-        name: "Resting State",
-        startIdx: 0,
-        endIdx: excitationStart,
-        color: "rgba(200, 220, 255, 0.3)",
-        description: "Initial equilibrium state of the system"
-      });
-      
-      // Excitation phase (similar to depolarization but for FHN)
-      phases.push({
-        name: "Excitation",
-        startIdx: excitationStart,
-        endIdx: peak,
-        color: "rgba(255, 150, 150, 0.3)",
-        description: "Rapid change of state variable (similar to depolarization)"
-      });
-      
-      // Early recovery phase (starts declining from peak)
-      phases.push({
-        name: "Early Recovery",
-        startIdx: peak,
-        endIdx: repolarizationStart,
-        color: "rgba(255, 200, 150, 0.3)",
-        description: "Beginning of recovery process after peak"
-      });
-      
-      // Main recovery phase (major part of repolarization)
-      phases.push({
-        name: "Recovery",
-        startIdx: repolarizationStart,
-        endIdx: restingReturn,
-        color: "rgba(150, 255, 150, 0.3)",
-        description: "Main recovery period (similar to repolarization)"
-      });
-      
-      // Refractory period and return to rest
-      phases.push({
-        name: "Refractory Period",
-        startIdx: restingReturn,
-        endIdx: finalResting,
-        color: "rgba(220, 220, 255, 0.3)",
-        description: "System returning to resting state, less excitable"
-      });
-    }
+    // Recovery phase (after repolarization)
+    let recoveryEnd = Math.min(repolarizationEnd + 200, v.length - 1);
+    
+    phases.push({
+      name: 'Recovery',
+      startIdx: repolarizationEnd,
+      endIdx: recoveryEnd,
+      color: 'rgba(220, 220, 255, 0.5)',
+      description: 'Recovery period - gates are recovering but cell remains unexcitable'
+    });
     
     return phases;
   };
   
   useEffect(() => {
-    if (!svgRef.current || !data || data.time.length === 0) return;
+    if (!svgRef.current) return;
     
     const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
+    svg.selectAll('*').remove();
     
-    // Set up margins and dimensions
-    const margin = { top: 20, right: 30, bottom: 50, left: 60 };
+    const margin = { top: 20, right: 20, bottom: 50, left: 60 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
     
-    // Create the main group for the plot
-    const g = svg
-      .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
+    // Parse data
+    const { time, v, h } = data;
     
     // Create scales
-    const xScale = d3
-      .scaleLinear()
-      .domain([0, d3.max(data.time) || 100])
+    const xScale = d3.scaleLinear()
+      .domain([0, d3.max(time) || 0])
       .range([0, innerWidth]);
     
-    // Find the min and max values for y-axis
-    let yMin = d3.min(data.v) || -1;
-    let yMax = d3.max(data.v) || 1;
+    const yVoltageScale = d3.scaleLinear()
+      .domain([-0.1, 1.1])  // Mitchell Schaeffer model voltage typically in [0,1]
+      .range([innerHeight, 0]);
     
-    // If comparison data is available, include its values in the domain calculation
-    if (showComparison && comparisonData && comparisonData.v.length > 0) {
-      yMin = Math.min(yMin, d3.min(comparisonData.v) || -1);
-      yMax = Math.max(yMax, d3.max(comparisonData.v) || 1);
-    }
-    
-    // Add some padding to y domain
-    yMin = yMin - 0.1 * (yMax - yMin);
-    yMax = yMax + 0.1 * (yMax - yMin);
-    
-    const yScale = d3
-      .scaleLinear()
-      .domain([yMin, yMax])
+    const yGateScale = d3.scaleLinear()
+      .domain([0, 1])  // Mitchell Schaeffer gate variable always in [0,1]
       .range([innerHeight, 0]);
     
     // Create axes
     const xAxis = d3.axisBottom(xScale);
-    const yAxis = d3.axisLeft(yScale);
+    const yVoltageAxis = d3.axisLeft(yVoltageScale);
+    const yGateAxis = d3.axisRight(yGateScale);
     
-    // Add axes to the plot
-    g.append("g")
-      .attr("class", "x-axis")
-      .attr("transform", `translate(0,${innerHeight})`)
-      .call(xAxis);
+    // Create container
+    const g = svg.append('g')
+      .attr('transform', `translate(${margin.left}, ${margin.top})`);
     
-    g.append("g")
-      .attr("class", "y-axis")
-      .call(yAxis);
-    
-    // Add axis labels
-    g.append("text")
-      .attr("class", "x-label")
-      .attr("text-anchor", "middle")
-      .attr("x", innerWidth / 2)
-      .attr("y", innerHeight + margin.bottom - 10)
-      .text("Time");
-    
-    g.append("text")
-      .attr("class", "y-label")
-      .attr("text-anchor", "middle")
-      .attr("transform", "rotate(-90)")
-      .attr("x", -innerHeight / 2)
-      .attr("y", -margin.left + 15)
-      .text("Membrane Potential");
-    
-    // Create line generator
-    const line = d3
-      .line<number>()
-      .x((d: number, i: number) => xScale(data.time[i]))
-      .y((d: number) => yScale(d));
-    
-    // If highlighting phases, identify and draw them
+    // Mark phases if enabled
     if (highlightPhases) {
       const phases = identifyPhases(data);
       
-      // Draw phase backgrounds
-      phases.forEach((phase, index) => {
-        const startX = xScale(data.time[phase.startIdx]);
-        const endX = xScale(data.time[phase.endIdx]);
-        
-        // Draw phase background
-        g.append("rect")
-          .attr("x", startX)
-          .attr("y", 0)
-          .attr("width", endX - startX)
-          .attr("height", innerHeight)
-          .attr("fill", phase.color)
-          .attr("class", "phase-highlight")
-          .on("mouseover", function(event: MouseEvent) {
-            setTooltip({
-              visible: true,
-              x: event.pageX,
-              y: event.pageY,
-              content: `${phase.name}: ${phase.description}`
+      // Add phase bands
+      phases.forEach(phase => {
+        if (phase.startIdx >= 0 && phase.endIdx >= phase.startIdx) {
+          g.append('rect')
+            .attr('x', xScale(time[phase.startIdx]))
+            .attr('y', 0)
+            .attr('width', xScale(time[phase.endIdx]) - xScale(time[phase.startIdx]))
+            .attr('height', innerHeight)
+            .attr('fill', phase.color)
+            .on('mouseover', () => {
+              setTooltip({
+                visible: true,
+                x: xScale(time[Math.floor((phase.startIdx + phase.endIdx) / 2)]) + margin.left,
+                y: innerHeight / 2 + margin.top,
+                content: `${phase.name}: ${phase.description}`
+              });
+            })
+            .on('mouseout', () => {
+              setTooltip({ ...tooltip, visible: false });
             });
-          })
-          .on("mouseout", function() {
-            setTooltip({ ...tooltip, visible: false });
-          });
-        
-        // Add phase label - stagger vertically to prevent overlap
-        const labelY = innerHeight - 10 - (index % 2) * 15;
-        g.append("text")
-          .attr("x", startX + (endX - startX) / 2)
-          .attr("y", labelY)
-          .attr("text-anchor", "middle")
-          .attr("font-size", "10px")
-          .attr("fill", "#333")
-          .text(phase.name);
+          
+          // Add phase label
+          g.append('text')
+            .attr('x', xScale(time[Math.floor((phase.startIdx + phase.endIdx) / 2)]))
+            .attr('y', 15)
+            .attr('text-anchor', 'middle')
+            .style('font-size', '10px')
+            .style('fill', '#666')
+            .text(phase.name);
+        }
       });
     }
     
-    // Draw the main action potential trace
-    g.append("path")
-      .datum(data.v)
-      .attr("fill", "none")
-      .attr("stroke", "steelblue")
-      .attr("stroke-width", 2)
-      .attr("d", line);
+    // Add X axis
+    g.append('g')
+      .attr('transform', `translate(0, ${innerHeight})`)
+      .call(xAxis)
+      .append('text')
+      .attr('x', innerWidth / 2)
+      .attr('y', 40)
+      .attr('fill', 'black')
+      .attr('text-anchor', 'middle')
+      .text('Time');
     
-    // Draw the recovery variable if available
-    g.append("path")
-      .datum(data.w)
-      .attr("fill", "none")
-      .attr("stroke", "lightgrey")
-      .attr("stroke-width", 1)
-      .attr("stroke-dasharray", "3,3")
-      .attr("d", line);
+    // Add Y axis for voltage
+    g.append('g')
+      .call(yVoltageAxis)
+      .append('text')
+      .attr('transform', 'rotate(-90)')
+      .attr('x', -innerHeight / 2)
+      .attr('y', -40)
+      .attr('fill', 'steelblue')
+      .attr('text-anchor', 'middle')
+      .text('Voltage');
     
-    // Draw comparison data if available
-    if (showComparison && comparisonData && comparisonData.v.length > 0) {
-      const comparisonLine = d3
-        .line<number>()
-        .x((d: number, i: number) => xScale(comparisonData.time[i]))
-        .y((d: number) => yScale(d));
+    // Add Y axis for gate
+    g.append('g')
+      .attr('transform', `translate(${innerWidth}, 0)`)
+      .call(yGateAxis)
+      .append('text')
+      .attr('transform', 'rotate(-90)')
+      .attr('x', -innerHeight / 2)
+      .attr('y', 40)
+      .attr('fill', 'orange')
+      .attr('text-anchor', 'middle')
+      .text('Gate variable');
+    
+    // Create voltage line
+    const voltageLine = d3.line<number>()
+      .x((_, i) => xScale(time[i]))
+      .y(d => yVoltageScale(d));
+    
+    // Create gate line
+    const gateLine = d3.line<number>()
+      .x((_, i) => xScale(time[i]))
+      .y(d => yGateScale(d));
+    
+    // Add voltage path
+    g.append('path')
+      .datum(v)
+      .attr('fill', 'none')
+      .attr('stroke', 'steelblue')
+      .attr('stroke-width', 2)
+      .attr('d', voltageLine);
+    
+    // Add gate path
+    g.append('path')
+      .datum(h)
+      .attr('fill', 'none')
+      .attr('stroke', 'orange')
+      .attr('stroke-opacity', 0.7)
+      .attr('stroke-width', 1.5)
+      .attr('stroke-dasharray', '4,2')
+      .attr('d', gateLine);
+    
+    // Plot comparison data if available
+    if (showComparison && comparisonData) {
+      const comparisonVoltageLine = d3.line<number>()
+        .x((_, i) => xScale(comparisonData.time[i]))
+        .y(d => yVoltageScale(d));
       
-      g.append("path")
+      g.append('path')
         .datum(comparisonData.v)
-        .attr("fill", "none")
-        .attr("stroke", "red")
-        .attr("stroke-width", 2)
-        .attr("d", comparisonLine);
+        .attr('fill', 'none')
+        .attr('stroke', 'red')
+        .attr('stroke-width', 1.5)
+        .attr('stroke-dasharray', '3,3')
+        .attr('d', comparisonVoltageLine);
     }
     
     // Add legend
-    const legend = g.append("g")
-      .attr("class", "legend")
-      .attr("transform", `translate(${innerWidth - 150}, 10)`);
+    const legend = g.append('g')
+      .attr('transform', `translate(${innerWidth - 150}, 10)`);
     
-    // Main trace legend item
-    legend.append("line")
-      .attr("x1", 0)
-      .attr("y1", 0)
-      .attr("x2", 20)
-      .attr("y2", 0)
-      .attr("stroke", "steelblue")
-      .attr("stroke-width", 2);
+    // Voltage legend
+    legend.append('line')
+      .attr('x1', 0).attr('y1', 0)
+      .attr('x2', 20).attr('y2', 0)
+      .attr('stroke', 'steelblue')
+      .attr('stroke-width', 2);
     
-    legend.append("text")
-      .attr("x", 25)
-      .attr("y", 4)
-      .text("Voltage (v)");
+    legend.append('text')
+      .attr('x', 25)
+      .attr('y', 4)
+      .style('font-size', '12px')
+      .text('Voltage');
     
-    // Recovery variable legend item
-    legend.append("line")
-      .attr("x1", 0)
-      .attr("y1", 20)
-      .attr("x2", 20)
-      .attr("y2", 20)
-      .attr("stroke", "lightgrey")
-      .attr("stroke-width", 1)
-      .attr("stroke-dasharray", "3,3");
+    // Gate legend
+    legend.append('line')
+      .attr('x1', 0).attr('y1', 20)
+      .attr('x2', 20).attr('y2', 20)
+      .attr('stroke', 'orange')
+      .attr('stroke-opacity', 0.7)
+      .attr('stroke-width', 1.5)
+      .attr('stroke-dasharray', '4,2');
     
-    legend.append("text")
-      .attr("x", 25)
-      .attr("y", 24)
-      .text("Recovery (w)");
+    legend.append('text')
+      .attr('x', 25)
+      .attr('y', 24)
+      .style('font-size', '12px')
+      .text('Gate variable (h)');
     
-    // Comparison trace legend item (if showing comparison)
+    // Comparison legend if applicable
     if (showComparison && comparisonData) {
-      legend.append("line")
-        .attr("x1", 0)
-        .attr("y1", 40)
-        .attr("x2", 20)
-        .attr("y2", 40)
-        .attr("stroke", "red")
-        .attr("stroke-width", 2);
+      legend.append('line')
+        .attr('x1', 0).attr('y1', 40)
+        .attr('x2', 20).attr('y2', 40)
+        .attr('stroke', 'red')
+        .attr('stroke-width', 1.5)
+        .attr('stroke-dasharray', '3,3');
       
-      legend.append("text")
-        .attr("x", 25)
-        .attr("y", 44)
-        .text("Comparison");
+      legend.append('text')
+        .attr('x', 25)
+        .attr('y', 44)
+        .style('font-size', '12px')
+        .text('Comparison');
     }
+    
+    // Add title
+    svg.append('text')
+      .attr('x', width / 2)
+      .attr('y', 16)
+      .attr('text-anchor', 'middle')
+      .style('font-size', '16px')
+      .style('font-weight', 'bold')
+      .text('Mitchell Schaeffer Action Potential');
     
   }, [data, width, height, comparisonData, showComparison, highlightPhases, tooltip]);
   
   return (
-    <div className="relative">
-      <svg ref={svgRef} width={width} height={height} className="action-potential-plot">
-        {/* D3 will populate this */}
-      </svg>
+    <div className="action-potential-plot relative">
+      <svg ref={svgRef} width={width} height={height} />
       
       {/* Tooltip */}
       {tooltip.visible && (
         <div 
-          className="absolute z-10 bg-white shadow-lg p-2 rounded text-sm"
-          style={{ 
-            left: `${tooltip.x + 10}px`, 
-            top: `${tooltip.y - 10}px`,
-            transform: 'translate(-50%, -100%)',
-            pointerEvents: 'none'
+          className="absolute bg-white p-2 shadow-lg rounded border border-gray-300 z-10 max-w-xs"
+          style={{
+            left: tooltip.x,
+            top: tooltip.y,
+            transform: 'translate(-50%, -100%)'
           }}
         >
-          {tooltip.content}
+          <p className="text-sm">{tooltip.content}</p>
+          <div className="absolute w-2 h-2 bg-white border-b border-r border-gray-300 transform rotate-45" 
+            style={{ bottom: '-5px', left: '50%', marginLeft: '-5px' }}
+          ></div>
         </div>
       )}
     </div>

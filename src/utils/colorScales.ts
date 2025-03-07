@@ -149,7 +149,7 @@ export const apdColorStops: RGBColor[] = [
  * @returns Color scale function for voltage
  */
 export function createVoltageColorScale(
-  minVoltage: number = -1.0,
+  minVoltage: number = 0.0,  // Mitchell Schaeffer voltage range is [0,1]
   maxVoltage: number = 1.0
 ): (voltage: number) => string {
   return createColorScale(minVoltage, maxVoltage, voltageColorStops);

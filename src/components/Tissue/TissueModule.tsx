@@ -60,14 +60,16 @@ const TissueModule: React.FC = () => {
     s2Amplitude: 1.0,
     s2Duration: 1.0,
     s2StartTime: 30.0,
-    simulationDuration: 100
+    simulationDuration: 1000  // Increased to 1000ms for better MS model visualization
   });
   
   // Cell model parameters
   const [cellParams, setCellParams] = useState({
-    a: params.a,
-    b: params.b,
-    epsilon: params.epsilon,
+    tau_in: params.tau_in,
+    tau_out: params.tau_out,
+    tau_open: params.tau_open,
+    tau_close: params.tau_close,
+    v_gate: params.v_gate
   });
   
   const [tissueSize, setTissueSize] = useState({
@@ -81,6 +83,27 @@ const TissueModule: React.FC = () => {
     activationTime: createActivationTimeColorScale(0, 50),
     apd: createAPDColorScale(10, 30)
   });
+  
+  // Use the actual data ranges to update color scales when results are available
+  useEffect(() => {
+    if (results) {
+      // For activation times
+      const validTimes = results.activationTimes.flat().filter(val => val >= 0);
+      if (validTimes.length > 0) {
+        const minTime = Math.min(...validTimes);
+        const maxTime = Math.max(...validTimes);
+        colorScales.current.activationTime = createActivationTimeColorScale(minTime, maxTime);
+      }
+      
+      // For APD
+      const validApds = results.apd.flat().filter(val => val > 0);
+      if (validApds.length > 0) {
+        const minApd = Math.min(...validApds);
+        const maxApd = Math.max(...validApds);
+        colorScales.current.apd = createAPDColorScale(minApd, maxApd);
+      }
+    }
+  }, [results]);
   
   // Handle cell click
   const handleCellClick = (row: number, col: number) => {
@@ -107,10 +130,11 @@ const TissueModule: React.FC = () => {
         deltax: simulationParams.deltax as number || 1.0,
         
         // Use the user-specified cell parameters 
-        a: simulationParams.a as number || 0.45,
-        b: simulationParams.b as number || 0.23,
-        epsilon: simulationParams.epsilon as number || 0.08,
-        I: simulationParams.I as number || 0.0,
+        tau_in: simulationParams.tau_in as number || 0.3,
+        tau_out: simulationParams.tau_out as number || 6.0,
+        tau_open: simulationParams.tau_open as number || 120.0,
+        tau_close: simulationParams.tau_close as number || 80.0,
+        v_gate: simulationParams.v_gate as number || 0.13,
         dt: simulationParams.dt as number || 0.01
       };
       
@@ -213,7 +237,10 @@ const TissueModule: React.FC = () => {
     // Stop any ongoing animation
     stopAnimation();
     
-    // Update params if tissue size has changed
+    // Reset selected cell when running a new simulation
+    setSelectedCell(null);
+    
+    // Immediately update params if tissue size has changed
     if (params.rows !== tissueSize.rows || params.cols !== tissueSize.cols) {
       dispatch(updateTissueParameters({
         rows: tissueSize.rows,
@@ -224,10 +251,12 @@ const TissueModule: React.FC = () => {
     // Update tissue parameters with cell parameters
     dispatch(updateTissueParameters(cellParams));
     
-    // Create simulation parameters
+    // Create simulation parameters that use the updated values directly
     const simulationParams = {
       ...params,
-      ...cellParams, // Include cell parameters
+      rows: tissueSize.rows,  // Use direct values
+      cols: tissueSize.cols,  // Use direct values
+      ...cellParams,          // Include cell parameters
       protocol: stimulusParams.protocol,
       s1StartTime: stimulusParams.s1StartTime,
       s1Duration: stimulusParams.s1Duration,
@@ -240,9 +269,6 @@ const TissueModule: React.FC = () => {
       obstacleCoordinates,
       diffusionGradient
     };
-    
-    // Reset selected cell when running a new simulation
-    setSelectedCell(null);
     
     // Run the simulation
     runSimulation(simulationParams);
@@ -332,10 +358,11 @@ const TissueModule: React.FC = () => {
   
   // Loading spinner component
   const LoadingSpinner = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-5 rounded-lg flex flex-col items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-3"></div>
-        <p className="text-gray-700">Simulating tissue dynamics...</p>
+    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-t-4 border-blue-600 mb-4"></div>
+        <p className="text-lg font-semibold text-gray-800">Running Simulation...</p>
+        <p className="text-sm text-gray-600 mt-2">This may take a moment. Longer simulations require more time.</p>
       </div>
     </div>
   );
@@ -344,7 +371,7 @@ const TissueModule: React.FC = () => {
     <div className="p-4">
       <h2 className="text-2xl font-bold mb-4">Tissue Propagation</h2>
       
-      {/* Loading spinner when simulation is running */}
+      {/* Show loading spinner during simulation */}
       {simulationInProgress && <LoadingSpinner />}
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -438,71 +465,117 @@ const TissueModule: React.FC = () => {
             
             <div className="space-y-4">
               <div>
-                <label htmlFor="param-a" className="block font-medium text-gray-700 mb-1">
-                  Parameter a: {cellParams.a.toFixed(2)}
+                <label htmlFor="param-tau_in" className="block font-medium text-gray-700 mb-1">
+                  Parameter tau_in: {cellParams.tau_in.toFixed(2)}
                 </label>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-500 mr-2">0.0</span>
                   <input
-                    id="param-a"
+                    id="param-tau_in"
                     type="range"
                     min="0"
                     max="1"
                     step="0.01"
-                    value={cellParams.a}
-                    onChange={(e) => handleCellParamChange('a', parseFloat(e.target.value))}
+                    value={cellParams.tau_in}
+                    onChange={(e) => handleCellParamChange('tau_in', parseFloat(e.target.value))}
                     className="w-full"
                   />
                   <span className="text-sm text-gray-500 ml-2">1.0</span>
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
-                  Controls threshold for excitation. For tissue, try 0.45 (lower values = more excitable)
+                  Controls time constant for inward current
                 </div>
               </div>
               
               <div>
-                <label htmlFor="param-b" className="block font-medium text-gray-700 mb-1">
-                  Parameter b: {cellParams.b.toFixed(2)}
+                <label htmlFor="param-tau_out" className="block font-medium text-gray-700 mb-1">
+                  Parameter tau_out: {cellParams.tau_out.toFixed(2)}
                 </label>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-500 mr-2">0.0</span>
                   <input
-                    id="param-b"
+                    id="param-tau_out"
                     type="range"
                     min="0"
-                    max="1.5"
+                    max="10"
                     step="0.01"
-                    value={cellParams.b}
-                    onChange={(e) => handleCellParamChange('b', parseFloat(e.target.value))}
+                    value={cellParams.tau_out}
+                    onChange={(e) => handleCellParamChange('tau_out', parseFloat(e.target.value))}
                     className="w-full"
                   />
-                  <span className="text-sm text-gray-500 ml-2">1.5</span>
+                  <span className="text-sm text-gray-500 ml-2">10.0</span>
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
-                  Controls recovery rate. For tissue, try 0.23 (lower values = slower recovery)
+                  Controls time constant for outward current
                 </div>
               </div>
               
               <div>
-                <label htmlFor="param-epsilon" className="block font-medium text-gray-700 mb-1">
-                  Epsilon: {cellParams.epsilon.toFixed(3)}
+                <label htmlFor="param-tau_open" className="block font-medium text-gray-700 mb-1">
+                  Parameter tau_open: {cellParams.tau_open.toFixed(2)}
                 </label>
                 <div className="flex items-center">
-                  <span className="text-sm text-gray-500 mr-2">0.01</span>
+                  <span className="text-sm text-gray-500 mr-2">0.0</span>
                   <input
-                    id="param-epsilon"
+                    id="param-tau_open"
                     type="range"
-                    min="0.01"
-                    max="0.5"
-                    step="0.001"
-                    value={cellParams.epsilon}
-                    onChange={(e) => handleCellParamChange('epsilon', parseFloat(e.target.value))}
+                    min="0"
+                    max="200"
+                    step="1"
+                    value={cellParams.tau_open}
+                    onChange={(e) => handleCellParamChange('tau_open', parseInt(e.target.value))}
                     className="w-full"
                   />
-                  <span className="text-sm text-gray-500 ml-2">0.5</span>
+                  <span className="text-sm text-gray-500 ml-2">200</span>
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
-                  Controls time scale separation (affects action potential duration)
+                  Controls time constant for channel opening
+                </div>
+              </div>
+              
+              <div>
+                <label htmlFor="param-tau_close" className="block font-medium text-gray-700 mb-1">
+                  Parameter tau_close: {cellParams.tau_close.toFixed(2)}
+                </label>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">0.0</span>
+                  <input
+                    id="param-tau_close"
+                    type="range"
+                    min="0"
+                    max="200"
+                    step="1"
+                    value={cellParams.tau_close}
+                    onChange={(e) => handleCellParamChange('tau_close', parseInt(e.target.value))}
+                    className="w-full"
+                  />
+                  <span className="text-sm text-gray-500 ml-2">200</span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Controls time constant for channel closing
+                </div>
+              </div>
+              
+              <div>
+                <label htmlFor="param-v_gate" className="block font-medium text-gray-700 mb-1">
+                  Parameter v_gate: {cellParams.v_gate.toFixed(2)}
+                </label>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">0.0</span>
+                  <input
+                    id="param-v_gate"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={cellParams.v_gate}
+                    onChange={(e) => handleCellParamChange('v_gate', parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                  <span className="text-sm text-gray-500 ml-2">1.0</span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Controls voltage-gated channel opening
                 </div>
               </div>
               
@@ -643,18 +716,18 @@ const TissueModule: React.FC = () => {
                   Simulation Duration: {stimulusParams.simulationDuration}
                 </label>
                 <div className="flex items-center">
-                  <span className="text-xs text-gray-500 mr-2">50</span>
+                  <span className="text-xs text-gray-500 mr-2">100</span>
                   <input
                     id="simulation-duration"
                     type="range"
-                    min="50"
-                    max="200"
-                    step="10"
+                    min="100"
+                    max="2000"
+                    step="100"
                     value={stimulusParams.simulationDuration}
                     onChange={(e) => handleStimulusParamChange('simulationDuration', parseInt(e.target.value))}
                     className="w-full"
                   />
-                  <span className="text-xs text-gray-500 ml-2">200</span>
+                  <span className="text-xs text-gray-500 ml-2">2000</span>
                 </div>
               </div>
             </div>
@@ -850,16 +923,24 @@ const TissueModule: React.FC = () => {
             <h3 className="text-lg font-semibold text-primary mb-2">About Tissue Propagation</h3>
             <p className="mb-2">
               This simulation shows how electrical impulses propagate through cardiac tissue using a 
-              2D reaction-diffusion model based on FitzHugh-Nagumo equations.
+              2D reaction-diffusion model based on the Mitchell Schaeffer equations.
             </p>
             <ul className="list-disc ml-6 mb-2">
-              <li>Blue regions represent resting tissue (negative voltage)</li>
-              <li>Red regions represent excited tissue (positive voltage)</li>
+              <li>Blue regions represent resting tissue (low voltage)</li>
+              <li>Red regions represent excited tissue (high voltage)</li>
               <li>White regions represent the threshold between states</li>
             </ul>
+            <p className="mb-2">
+              <strong>Key advantages of the Mitchell Schaeffer model:</strong>
+            </p>
+            <ul className="list-disc ml-6 mb-2">
+              <li>No spontaneous automaticity - cells only activate when stimulated</li>
+              <li>Parameters have direct physiological interpretation</li>
+              <li>Can realistically simulate conduction block and reentry</li>
+            </ul>
             <p>
-              <strong>Tip:</strong> Different parameters may work better for single cell vs. tissue simulations. 
-              Cell coupling in tissue creates different dynamics than isolated cells.
+              <strong>Tip:</strong> The simulation runs longer (1000ms) to properly demonstrate 
+              the Mitchell Schaeffer dynamics which have longer recovery periods.
             </p>
           </div>
           

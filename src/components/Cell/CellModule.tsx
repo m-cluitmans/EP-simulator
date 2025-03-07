@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
-  FhnParams, 
+  MsParams, 
   applyStimulus,
   calculateAPD,
   calculateMaxUpstrokeVelocity,
-  FhnResults
-} from '../../models/FitzHughNagumoModel';
+  MsResults
+} from '../../models/MitchellSchaefferModel';
 import { RootState } from '../../store';
 import { 
   updateParameters,
@@ -31,7 +31,7 @@ const CellModule: React.FC = () => {
   } = useSelector((state: RootState) => state.cell);
   
   const [stimulusParams, setStimulusParams] = useState({
-    amplitude: 0.5,
+    amplitude: 1.0,
     duration: 1.0,
     startTime: 5.0,
     timeSpan: 50
@@ -48,32 +48,25 @@ const CellModule: React.FC = () => {
     status: simulationStatus, 
     results: simulationResults, 
     runSimulation
-  } = useSimulation<Record<string, unknown>, FhnResults>(
-    (params) => {
-      // Safe extraction of parameters with fallbacks
-      const modelParams = {
-        a: params.a as number || 0.7,
-        b: params.b as number || 0.8,
-        epsilon: params.epsilon as number || 0.08,
-        I: params.I as number || 0,
-        dt: params.dt as number || 0.01
+  } = useSimulation<Record<string, unknown>, MsResults>(
+    (simulationParams) => {
+      // Extract parameters with fallbacks
+      const msParams: MsParams = {
+        tau_in: simulationParams.tau_in as number || params.tau_in,
+        tau_out: simulationParams.tau_out as number || params.tau_out,
+        tau_open: simulationParams.tau_open as number || params.tau_open,
+        tau_close: simulationParams.tau_close as number || params.tau_close,
+        v_gate: simulationParams.v_gate as number || params.v_gate,
+        dt: simulationParams.dt as number || params.dt
       };
       
-      const stimParams = {
-        stimulusAmplitude: params.stimulusAmplitude as number || 0.5,
-        stimulusDuration: params.stimulusDuration as number || 1.0,
-        stimulusStart: params.stimulusStart as number || 5.0,
-        timeSpan: params.timeSpan as number || 50
-      };
+      const amplitude = simulationParams.amplitude as number || stimulusParams.amplitude;
+      const duration = simulationParams.duration as number || stimulusParams.duration;
+      const startTime = simulationParams.startTime as number || stimulusParams.startTime;
+      const timeSpan = simulationParams.timeSpan as number || stimulusParams.timeSpan;
       
-      // Run the simulation with explicit parameters
-      return applyStimulus(
-        modelParams,
-        stimParams.stimulusAmplitude,
-        stimParams.stimulusDuration,
-        stimParams.stimulusStart,
-        stimParams.timeSpan
-      );
+      // Run simulation with parameters
+      return applyStimulus(msParams, amplitude, duration, startTime, timeSpan);
     }
   );
   
@@ -83,32 +76,31 @@ const CellModule: React.FC = () => {
       dispatch(setResults(simulationResults));
       
       // Calculate metrics
-      const apd = calculateAPD(simulationResults);
+      const apd = calculateAPD(simulationResults, 0.1);
       const maxUpstrokeVelocity = calculateMaxUpstrokeVelocity(simulationResults);
-      setMetrics({ apd, maxUpstrokeVelocity });
+      
+      setMetrics({
+        apd,
+        maxUpstrokeVelocity
+      });
     }
   }, [simulationStatus, simulationResults, dispatch]);
   
-  // Run simulation with current parameter set
+  // Run current simulation
   const runCurrentSimulation = () => {
-    // Create a plain object with all parameters
-    const simulationParams = {
+    // Run the simulation with current parameters
+    runSimulation({
       ...params,
-      stimulusAmplitude: stimulusParams.amplitude,
-      stimulusDuration: stimulusParams.duration,
-      stimulusStart: stimulusParams.startTime,
-      timeSpan: stimulusParams.timeSpan
-    };
-    
-    runSimulation(simulationParams);
+      ...stimulusParams
+    });
   };
   
-  // Handle parameter change
-  const handleParamChange = (paramName: keyof FhnParams, value: number) => {
+  // Handle parameter changes
+  const handleParamChange = (paramName: keyof MsParams, value: number) => {
     dispatch(updateParameters({ [paramName]: value }));
   };
   
-  // Handle stimulus parameter change
+  // Handle stimulus parameter changes
   const handleStimulusParamChange = (paramName: string, value: number) => {
     setStimulusParams(prev => ({ ...prev, [paramName]: value }));
   };
@@ -118,15 +110,16 @@ const CellModule: React.FC = () => {
     dispatch(applyPreset(preset));
   };
   
-  // Toggle comparison
+  // Toggle comparison mode
   const handleToggleComparison = () => {
     dispatch(toggleComparison());
   };
   
-  // Store current results as comparison
+  // Store current simulation as comparison
   const handleStoreComparison = () => {
     if (results) {
       dispatch(setComparisonResults(results));
+      dispatch(toggleComparison());
     }
   };
   
@@ -137,124 +130,171 @@ const CellModule: React.FC = () => {
   
   return (
     <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Single Cell Electrophysiology</h2>
+      <h2 className="text-2xl font-bold mb-4">Single Cell Model</h2>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Controls Panel */}
+        {/* Control Panel */}
         <div className="lg:col-span-1">
+          {/* Presets */}
           <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
-            <h3 className="text-lg font-semibold mb-4">FitzHugh-Nagumo Parameters</h3>
+            <h3 className="text-lg font-semibold mb-4">Cell Presets</h3>
             
-            {/* Parameter Sliders */}
+            <div className="grid grid-cols-1 gap-2">
+              {Object.values(CELL_PRESETS).map(preset => (
+                <button
+                  key={preset}
+                  className={`px-3 py-2 rounded ${
+                    selectedPreset === preset 
+                      ? 'bg-primary text-white' 
+                      : 'bg-gray-200 hover:bg-gray-300'
+                  }`}
+                  onClick={() => handlePresetSelect(preset)}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Model Parameters */}
+          <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
+            <h3 className="text-lg font-semibold mb-4">Mitchell Schaeffer Model Parameters</h3>
+            
             <div className="space-y-4">
               <div>
-                <label htmlFor="param-a" className="block font-medium text-gray-700 mb-1">
-                  Parameter a: {params.a.toFixed(2)}
+                <label htmlFor="tau-in" className="block font-medium text-gray-700 mb-1">
+                  τᵢₙ (Depolarization): {params.tau_in.toFixed(2)}
                 </label>
                 <div className="flex items-center">
-                  <span className="text-sm text-gray-500 mr-2">0.0</span>
+                  <span className="text-sm text-gray-500 mr-2">0.1</span>
                   <input
-                    id="param-a"
+                    id="tau-in"
                     type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={params.a}
-                    onChange={(e) => handleParamChange('a', parseFloat(e.target.value))}
+                    min="0.1"
+                    max="1.0"
+                    step="0.1"
+                    value={params.tau_in}
+                    onChange={(e) => handleParamChange('tau_in', parseFloat(e.target.value))}
                     className="w-full"
                   />
                   <span className="text-sm text-gray-500 ml-2">1.0</span>
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
-                  Controls the threshold for excitation (rest state)
+                  Controls the speed of depolarization (upstroke velocity). Lower values = faster depolarization.
                 </div>
               </div>
               
               <div>
-                <label htmlFor="param-b" className="block font-medium text-gray-700 mb-1">
-                  Parameter b: {params.b.toFixed(2)}
+                <label htmlFor="tau-out" className="block font-medium text-gray-700 mb-1">
+                  τₒᵤₜ (Repolarization): {params.tau_out.toFixed(1)}
                 </label>
                 <div className="flex items-center">
-                  <span className="text-sm text-gray-500 mr-2">0.0</span>
+                  <span className="text-sm text-gray-500 mr-2">1.0</span>
                   <input
-                    id="param-b"
+                    id="tau-out"
                     type="range"
-                    min="0"
-                    max="1.5"
+                    min="1.0"
+                    max="15.0"
+                    step="0.5"
+                    value={params.tau_out}
+                    onChange={(e) => handleParamChange('tau_out', parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                  <span className="text-sm text-gray-500 ml-2">15.0</span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Controls repolarization time. Higher values = longer action potential duration.
+                </div>
+              </div>
+              
+              <div>
+                <label htmlFor="tau-open" className="block font-medium text-gray-700 mb-1">
+                  τₒₚₑₙ (Recovery): {params.tau_open.toFixed(0)}
+                </label>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">50</span>
+                  <input
+                    id="tau-open"
+                    type="range"
+                    min="50"
+                    max="200"
+                    step="10"
+                    value={params.tau_open}
+                    onChange={(e) => handleParamChange('tau_open', parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                  <span className="text-sm text-gray-500 ml-2">200</span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Controls the recovery time. Higher values = longer refractory period.
+                </div>
+              </div>
+              
+              <div>
+                <label htmlFor="tau-close" className="block font-medium text-gray-700 mb-1">
+                  τcₗₒₛₑ (Inactivation): {params.tau_close.toFixed(0)}
+                </label>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">50</span>
+                  <input
+                    id="tau-close"
+                    type="range"
+                    min="50"
+                    max="150"
+                    step="10"
+                    value={params.tau_close}
+                    onChange={(e) => handleParamChange('tau_close', parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                  <span className="text-sm text-gray-500 ml-2">150</span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Controls gate inactivation speed. Lower values = faster inactivation.
+                </div>
+              </div>
+              
+              <div>
+                <label htmlFor="v-gate" className="block font-medium text-gray-700 mb-1">
+                  Vₗₐₜₑ (Threshold): {params.v_gate.toFixed(2)}
+                </label>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">0.05</span>
+                  <input
+                    id="v-gate"
+                    type="range"
+                    min="0.05"
+                    max="0.3"
                     step="0.01"
-                    value={params.b}
-                    onChange={(e) => handleParamChange('b', parseFloat(e.target.value))}
+                    value={params.v_gate}
+                    onChange={(e) => handleParamChange('v_gate', parseFloat(e.target.value))}
                     className="w-full"
                   />
-                  <span className="text-sm text-gray-500 ml-2">1.5</span>
+                  <span className="text-sm text-gray-500 ml-2">0.3</span>
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
-                  Controls the recovery rate (similar to potassium current)
-                </div>
-              </div>
-              
-              <div>
-                <label htmlFor="param-epsilon" className="block font-medium text-gray-700 mb-1">
-                  Epsilon: {params.epsilon.toFixed(3)}
-                </label>
-                <div className="flex items-center">
-                  <span className="text-sm text-gray-500 mr-2">0.01</span>
-                  <input
-                    id="param-epsilon"
-                    type="range"
-                    min="0.01"
-                    max="0.5"
-                    step="0.001"
-                    value={params.epsilon}
-                    onChange={(e) => handleParamChange('epsilon', parseFloat(e.target.value))}
-                    className="w-full"
-                  />
-                  <span className="text-sm text-gray-500 ml-2">0.5</span>
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Controls time scale separation (lower = slower recovery)
-                </div>
-              </div>
-              
-              <div>
-                <label htmlFor="param-dt" className="block font-medium text-gray-700 mb-1">
-                  Time Step (dt): {params.dt.toFixed(3)}
-                </label>
-                <div className="flex items-center">
-                  <span className="text-sm text-gray-500 mr-2">0.001</span>
-                  <input
-                    id="param-dt"
-                    type="range"
-                    min="0.001"
-                    max="0.1"
-                    step="0.001"
-                    value={params.dt}
-                    onChange={(e) => handleParamChange('dt', parseFloat(e.target.value))}
-                    className="w-full"
-                  />
-                  <span className="text-sm text-gray-500 ml-2">0.1</span>
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Numerical integration time step (smaller = more accurate but slower)
+                  Threshold for gate switching. Higher values = higher threshold for activation.
                 </div>
               </div>
             </div>
+          </div>
+          
+          {/* Stimulus Controls */}
+          <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
+            <h3 className="text-lg font-semibold mb-4">Stimulus Parameters</h3>
             
-            {/* Stimulus Controls */}
-            <h3 className="text-lg font-semibold mt-6 mb-4">Stimulus Parameters</h3>
             <div className="space-y-4">
               <div>
                 <label htmlFor="stimulus-amplitude" className="block font-medium text-gray-700 mb-1">
-                  Amplitude: {stimulusParams.amplitude.toFixed(2)}
+                  Amplitude: {stimulusParams.amplitude.toFixed(1)}
                 </label>
                 <div className="flex items-center">
-                  <span className="text-sm text-gray-500 mr-2">0.0</span>
+                  <span className="text-sm text-gray-500 mr-2">0.5</span>
                   <input
                     id="stimulus-amplitude"
                     type="range"
-                    min="0"
-                    max="2"
-                    step="0.01"
+                    min="0.5"
+                    max="2.0"
+                    step="0.1"
                     value={stimulusParams.amplitude}
                     onChange={(e) => handleStimulusParamChange('amplitude', parseFloat(e.target.value))}
                     className="w-full"
@@ -273,13 +313,13 @@ const CellModule: React.FC = () => {
                     id="stimulus-duration"
                     type="range"
                     min="0.1"
-                    max="5"
+                    max="2.0"
                     step="0.1"
                     value={stimulusParams.duration}
                     onChange={(e) => handleStimulusParamChange('duration', parseFloat(e.target.value))}
                     className="w-full"
                   />
-                  <span className="text-sm text-gray-500 ml-2">5.0</span>
+                  <span className="text-sm text-gray-500 ml-2">2.0</span>
                 </div>
               </div>
               
@@ -292,128 +332,78 @@ const CellModule: React.FC = () => {
                   <input
                     id="stimulus-start"
                     type="range"
-                    min="1"
-                    max="20"
-                    step="0.1"
+                    min="1.0"
+                    max="10.0"
+                    step="0.5"
                     value={stimulusParams.startTime}
                     onChange={(e) => handleStimulusParamChange('startTime', parseFloat(e.target.value))}
                     className="w-full"
                   />
-                  <span className="text-sm text-gray-500 ml-2">20.0</span>
+                  <span className="text-sm text-gray-500 ml-2">10.0</span>
                 </div>
               </div>
               
               <div>
-                <label htmlFor="timespan" className="block font-medium text-gray-700 mb-1">
-                  Simulation Length: {stimulusParams.timeSpan.toFixed(0)}
+                <label htmlFor="simulation-timespan" className="block font-medium text-gray-700 mb-1">
+                  Simulation Duration: {stimulusParams.timeSpan}
                 </label>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-500 mr-2">20</span>
                   <input
-                    id="timespan"
+                    id="simulation-timespan"
                     type="range"
                     min="20"
-                    max="200"
-                    step="1"
+                    max="100"
+                    step="5"
                     value={stimulusParams.timeSpan}
                     onChange={(e) => handleStimulusParamChange('timeSpan', parseInt(e.target.value))}
                     className="w-full"
                   />
-                  <span className="text-sm text-gray-500 ml-2">200</span>
+                  <span className="text-sm text-gray-500 ml-2">100</span>
                 </div>
               </div>
             </div>
             
-            {/* Buttons */}
-            <div className="mt-6 space-y-3">
+            <div className="mt-4">
               <button
                 onClick={runCurrentSimulation}
                 className="w-full bg-primary text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
-                disabled={simulationStatus === SimulationStatus.RUNNING}
               >
-                {simulationStatus === SimulationStatus.RUNNING ? 'Simulating...' : 'Run Simulation'}
+                Run Simulation
               </button>
-              
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => handlePresetSelect(CELL_PRESETS.NORMAL)}
-                  className={`px-3 py-1.5 rounded text-sm ${
-                    selectedPreset === CELL_PRESETS.NORMAL 
-                      ? 'bg-primary text-white' 
-                      : 'bg-gray-200 hover:bg-gray-300'
-                  }`}
-                >
-                  Normal
-                </button>
-                <button
-                  onClick={() => handlePresetSelect(CELL_PRESETS.REDUCED_SODIUM)}
-                  className={`px-3 py-1.5 rounded text-sm ${
-                    selectedPreset === CELL_PRESETS.REDUCED_SODIUM 
-                      ? 'bg-primary text-white' 
-                      : 'bg-gray-200 hover:bg-gray-300'
-                  }`}
-                >
-                  Reduced Na+
-                </button>
-                <button
-                  onClick={() => handlePresetSelect(CELL_PRESETS.REDUCED_POTASSIUM)}
-                  className={`px-3 py-1.5 rounded text-sm ${
-                    selectedPreset === CELL_PRESETS.REDUCED_POTASSIUM 
-                      ? 'bg-primary text-white' 
-                      : 'bg-gray-200 hover:bg-gray-300'
-                  }`}
-                >
-                  Reduced K+
-                </button>
-                <button
-                  onClick={() => handlePresetSelect(CELL_PRESETS.INCREASED_CALCIUM)}
-                  className={`px-3 py-1.5 rounded text-sm ${
-                    selectedPreset === CELL_PRESETS.INCREASED_CALCIUM 
-                      ? 'bg-primary text-white' 
-                      : 'bg-gray-200 hover:bg-gray-300'
-                  }`}
-                >
-                  Increased Ca2+
-                </button>
-              </div>
             </div>
           </div>
           
           {/* Comparison Controls */}
           <div className="bg-white rounded-lg shadow-lg p-4">
-            <h3 className="text-lg font-semibold mb-4">Comparison Tools</h3>
+            <h3 className="text-lg font-semibold mb-4">Comparison Options</h3>
+            
             <div className="space-y-3">
               <button
+                onClick={handleStoreComparison}
+                disabled={!results}
+                className="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-300 transition-colors"
+              >
+                Save Current for Comparison
+              </button>
+              
+              <button
                 onClick={handleToggleComparison}
-                className={`w-full px-4 py-2 rounded ${
-                  showComparison 
-                    ? 'bg-blue-100 text-primary border border-primary' 
-                    : 'bg-gray-200 hover:bg-gray-300'
-                }`}
+                disabled={!comparisonResults}
+                className="w-full bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 disabled:bg-gray-300 transition-colors"
               >
                 {showComparison ? 'Hide Comparison' : 'Show Comparison'}
               </button>
               
-              {showComparison && (
-                <>
-                  <button
-                    onClick={handleStoreComparison}
-                    className="w-full bg-primary text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
-                    disabled={!results}
-                  >
-                    Store Current as Comparison
-                  </button>
-                  
-                  <button
-                    onClick={handleClearComparison}
-                    className="w-full bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 transition-colors"
-                  >
-                    Clear Comparison
-                  </button>
-                </>
-              )}
+              <button
+                onClick={handleClearComparison}
+                disabled={!comparisonResults}
+                className="w-full bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 disabled:bg-gray-300 transition-colors"
+              >
+                Clear Saved Comparison
+              </button>
               
-              <div className="flex items-center mt-4">
+              <div className="flex items-center mt-2">
                 <input
                   id="highlight-phases"
                   type="checkbox"
@@ -422,72 +412,81 @@ const CellModule: React.FC = () => {
                   className="h-4 w-4 text-primary"
                 />
                 <label htmlFor="highlight-phases" className="ml-2 text-sm text-gray-700">
-                  Highlight FHN Model Phases
+                  Highlight AP Phases
                 </label>
               </div>
             </div>
           </div>
         </div>
         
-        {/* Visualization Panel */}
+        {/* Action Potential Visualization */}
         <div className="lg:col-span-2">
-          {/* Action Potential Plot */}
+          {/* Plots */}
           <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
-            <h3 className="text-lg font-semibold mb-4">Action Potential</h3>
+            <h3 className="text-lg font-semibold mb-4">Mitchell Schaeffer Action Potential</h3>
             
             {results ? (
-              <ActionPotentialPlot 
-                data={results}
-                width={800}
-                height={400}
-                comparisonData={comparisonResults}
-                showComparison={showComparison}
-                highlightPhases={highlightPhases}
-              />
+              <div>
+                <ActionPotentialPlot 
+                  data={results} 
+                  width={600}
+                  height={400}
+                  comparisonData={comparisonResults}
+                  showComparison={showComparison}
+                  highlightPhases={highlightPhases}
+                />
+              </div>
             ) : (
-              <div className="flex items-center justify-center h-96 bg-gray-100 rounded">
-                <p className="text-gray-500">
-                  Run a simulation to see the action potential
-                </p>
+              <div className="flex items-center justify-center h-64 bg-gray-100 rounded">
+                <p className="text-gray-500">Run a simulation to see action potential</p>
               </div>
             )}
           </div>
           
-          {/* Educational Note */}
-          <div className="bg-blue-50 border-l-4 border-primary rounded-lg p-4 mb-6">
-            <h3 className="text-lg font-semibold text-primary mb-2">About the FitzHugh-Nagumo Model</h3>
-            <p className="mb-2">
-              The FitzHugh-Nagumo model is a simplified 2-variable mathematical model for excitable systems. 
-              While it doesn't capture all the ionic details of cardiac cells, it demonstrates key concepts:
-            </p>
-            <ul className="list-disc ml-6 mb-2">
-              <li>Excitability and threshold behavior</li>
-              <li>Refractory periods</li>
-              <li>Response to stimulation</li>
-            </ul>
-            <p>
-              <strong>Tip:</strong> Try changing the parameter values and observe how they affect the 
-              action potential shape and dynamics. The "a" parameter affects the threshold, while "epsilon" 
-              controls the recovery time scale.
-            </p>
-          </div>
-          
-          {/* Metrics Panel */}
+          {/* Metrics */}
           {results && (
-            <div className="bg-white rounded-lg shadow-lg p-4">
+            <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
               <h3 className="text-lg font-semibold mb-4">Action Potential Metrics</h3>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 p-3 rounded">
                   <div className="text-sm text-gray-500">Action Potential Duration</div>
-                  <div className="text-xl font-semibold">{metrics.apd.toFixed(2)} time units</div>
+                  <div className="text-xl font-semibold">{metrics.apd > 0 ? metrics.apd.toFixed(2) : 'N/A'} time units</div>
                 </div>
+                
                 <div className="bg-gray-50 p-3 rounded">
                   <div className="text-sm text-gray-500">Max Upstroke Velocity</div>
-                  <div className="text-xl font-semibold">{metrics.maxUpstrokeVelocity.toFixed(2)} dV/dt</div>
+                  <div className="text-xl font-semibold">{metrics.maxUpstrokeVelocity.toFixed(3)} dV/dt</div>
                 </div>
               </div>
             </div>
           )}
+          
+          {/* Educational Content */}
+          <div className="bg-blue-50 border-l-4 border-primary rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-primary mb-2">About the Mitchell Schaeffer Model</h3>
+            
+            <p className="mb-2">
+              The Mitchell Schaeffer model is a phenomenological model that captures key dynamics of cardiac action potentials
+              using a reduced set of variables and parameters with clear physiological interpretations.
+            </p>
+            
+            <p className="mb-2">
+              Key advantages of this model:
+            </p>
+            
+            <ul className="list-disc ml-6 mb-2">
+              <li>No spontaneous automaticity - cells only activate in response to stimuli</li>
+              <li>Parameters directly control specific AP features (upstroke, duration, etc.)</li>
+              <li>Computationally efficient while producing realistic action potentials</li>
+              <li>Can reproduce reentry and other complex cardiac dynamics</li>
+            </ul>
+            
+            <p>
+              <strong>Tip:</strong> To explore different cell behaviors, try adjusting τₒᵤₜ to change
+              action potential duration, or τᵢₙ to change upstroke velocity.
+            </p>
+          </div>
         </div>
       </div>
     </div>

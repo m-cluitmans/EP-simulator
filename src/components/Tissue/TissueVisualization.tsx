@@ -178,7 +178,7 @@ const TissueVisualization: React.FC<TissueVisualizationProps> = ({
     }
     
     // Add visualization legend
-    drawLegend(ctx, canvas.width, canvas.height, visualizationMode);
+    drawLegend(ctx, canvas.width, canvas.height, visualizationMode, results);
     
   }, [visualizationMode, currentData, results, cellSize, colorScales, selectedCell]);
   
@@ -187,7 +187,8 @@ const TissueVisualization: React.FC<TissueVisualizationProps> = ({
     ctx: CanvasRenderingContext2D, 
     width: number, 
     height: number, 
-    mode: VisualizationMode
+    mode: VisualizationMode,
+    results: TissueSimulationResults | null
   ) => {
     // Position the legend in the bottom right corner
     const legendWidth = 150;
@@ -201,9 +202,9 @@ const TissueVisualization: React.FC<TissueVisualizationProps> = ({
     // Set up gradient colors based on visualization mode
     switch (mode) {
       case VisualizationMode.VOLTAGE:
-        gradient.addColorStop(0, 'blue');       // Negative voltage (resting)
-        gradient.addColorStop(0.5, 'white');    // Zero voltage (threshold)
-        gradient.addColorStop(1, 'red');        // Positive voltage (excited)
+        gradient.addColorStop(0, 'blue');       // Resting potential (0)
+        gradient.addColorStop(0.5, 'white');    // Mid-voltage (0.5)
+        gradient.addColorStop(1, 'red');        // Excited state (1)
         break;
         
       case VisualizationMode.ACTIVATION_TIMES:
@@ -238,28 +239,43 @@ const TissueVisualization: React.FC<TissueVisualizationProps> = ({
     ctx.font = '10px Arial';
     ctx.textAlign = 'center';
     
-    // Label based on visualization mode
+    // Prepare variables for labels
     let leftLabel = '', rightLabel = '', centerLabel = '';
+    
+    // Find the range of values in the current data for AT and APD
+    let minValue = 0, maxValue = 0;
+    if (mode === VisualizationMode.ACTIVATION_TIMES && results) {
+      const validTimes = results.activationTimes.flat().filter(val => val >= 0);
+      minValue = validTimes.length ? Math.min(...validTimes) : 0;
+      maxValue = validTimes.length ? Math.max(...validTimes) : 100;
+    } else if (mode === VisualizationMode.ACTION_POTENTIAL_DURATION && results) {
+      const validApds = results.apd.flat().filter(val => val > 0);
+      minValue = validApds.length ? Math.min(...validApds) : 0;
+      maxValue = validApds.length ? Math.max(...validApds) : 50;
+    }
+    
+    // Format labels based on visualization mode
     switch (mode) {
       case VisualizationMode.VOLTAGE:
-        leftLabel = 'Resting';
+        leftLabel = '0.0';
         centerLabel = 'Voltage';
-        rightLabel = 'Excited';
+        rightLabel = '1.0';
         break;
         
       case VisualizationMode.ACTIVATION_TIMES:
-        leftLabel = 'Early';
-        centerLabel = 'Activation Time';
-        rightLabel = 'Late';
+        leftLabel = minValue.toFixed(0) + ' ms';
+        centerLabel = 'Activation Time (ms)';
+        rightLabel = maxValue.toFixed(0) + ' ms';
         break;
         
       case VisualizationMode.ACTION_POTENTIAL_DURATION:
-        leftLabel = 'Short';
-        centerLabel = 'APD';
-        rightLabel = 'Long';
+        leftLabel = minValue.toFixed(0) + ' ms';
+        centerLabel = 'APD (ms)';
+        rightLabel = maxValue.toFixed(0) + ' ms';
         break;
     }
     
+    // Add labels
     ctx.fillText(leftLabel, x, y + legendHeight + 12);
     ctx.fillText(centerLabel, x + legendWidth / 2, y + legendHeight + 12);
     ctx.fillText(rightLabel, x + legendWidth, y + legendHeight + 12);

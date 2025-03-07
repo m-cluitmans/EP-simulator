@@ -1,27 +1,26 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { FhnParams, FhnResults, DEFAULT_FHN_PARAMS, simulateFitzHughNagumo, applyStimulus } from '../../models/FitzHughNagumoModel';
+import { MsParams, MsResults, DEFAULT_MS_PARAMS, MS_CELL_PRESETS } from '../../models/MitchellSchaefferModel';
 
 interface CellState {
-  params: FhnParams;
-  results: FhnResults | null;
+  params: MsParams;
+  results: MsResults | null;
   simulationInProgress: boolean;
   selectedPreset: string;
-  comparisonResults: FhnResults | null;
+  comparisonResults: MsResults | null;
   showComparison: boolean;
 }
 
 // Define presets for different cell types or conditions
 export const CELL_PRESETS = {
-  NORMAL: 'Normal',
-  REDUCED_SODIUM: 'Reduced Sodium',
-  REDUCED_POTASSIUM: 'Reduced Potassium',
-  INCREASED_CALCIUM: 'Increased Calcium',
-  // The FitzHugh-Nagumo model doesn't directly map to ion channels,
-  // but we can use parameter adjustments to mimic these effects
+  NORMAL: 'Normal Cell',
+  SLOW_CONDUCTION: 'Slow Conduction',
+  LONG_APD: 'Long APD',
+  SHORT_APD: 'Short APD',
+  REDUCED_EXCITABILITY: 'Reduced Excitability',
 };
 
 const initialState: CellState = {
-  params: DEFAULT_FHN_PARAMS,
+  params: DEFAULT_MS_PARAMS,
   results: null,
   simulationInProgress: false,
   selectedPreset: CELL_PRESETS.NORMAL,
@@ -33,11 +32,11 @@ export const cellSlice = createSlice({
   name: 'cell',
   initialState,
   reducers: {
-    updateParameters: (state, action: PayloadAction<Partial<FhnParams>>) => {
+    updateParameters: (state, action: PayloadAction<Partial<MsParams>>) => {
       state.params = { ...state.params, ...action.payload };
     },
     
-    setResults: (state, action: PayloadAction<FhnResults>) => {
+    setResults: (state, action: PayloadAction<MsResults>) => {
       state.results = action.payload;
     },
     
@@ -51,39 +50,55 @@ export const cellSlice = createSlice({
       // Apply different parameter sets based on the selected preset
       switch (action.payload) {
         case CELL_PRESETS.NORMAL:
-          state.params = { ...DEFAULT_FHN_PARAMS };
+          state.params = { ...DEFAULT_MS_PARAMS };
           break;
           
-        case CELL_PRESETS.REDUCED_SODIUM:
-          // Reducing sodium would affect upstroke velocity
-          // In FHN model, we can adjust the cubic term coefficient
+        case CELL_PRESETS.SLOW_CONDUCTION:
           state.params = { 
-            ...DEFAULT_FHN_PARAMS, 
-            a: 0.75,  // Slightly increased 
-            epsilon: 0.06  // Slowed dynamics
+            ...DEFAULT_MS_PARAMS, 
+            tau_in: 0.5,     // Slower depolarization
+            tau_out: 6.0,
+            tau_open: 120.0,
+            tau_close: 80.0,
+            v_gate: 0.13
           };
           break;
           
-        case CELL_PRESETS.REDUCED_POTASSIUM:
-          // Reduced potassium affects repolarization
+        case CELL_PRESETS.LONG_APD:
           state.params = { 
-            ...DEFAULT_FHN_PARAMS, 
-            b: 0.7,  // Reduced recovery rate
-            epsilon: 0.07  // Slightly slowed dynamics
+            ...DEFAULT_MS_PARAMS, 
+            tau_in: 0.3,
+            tau_out: 12.0,    // Slower repolarization = longer APD
+            tau_open: 120.0,
+            tau_close: 80.0,
+            v_gate: 0.13
           };
           break;
           
-        case CELL_PRESETS.INCREASED_CALCIUM:
-          // Increased calcium affects plateau phase
+        case CELL_PRESETS.SHORT_APD:
           state.params = { 
-            ...DEFAULT_FHN_PARAMS, 
-            a: 0.65, // Lower threshold
-            b: 0.9   // Stronger recovery
+            ...DEFAULT_MS_PARAMS, 
+            tau_in: 0.3,
+            tau_out: 3.0,     // Faster repolarization = shorter APD
+            tau_open: 120.0,
+            tau_close: 80.0,
+            v_gate: 0.13
+          };
+          break;
+          
+        case CELL_PRESETS.REDUCED_EXCITABILITY:
+          state.params = { 
+            ...DEFAULT_MS_PARAMS, 
+            tau_in: 0.3,
+            tau_out: 6.0,
+            tau_open: 180.0,  // Slower recovery
+            tau_close: 80.0,
+            v_gate: 0.15      // Higher threshold
           };
           break;
           
         default:
-          state.params = { ...DEFAULT_FHN_PARAMS };
+          state.params = { ...DEFAULT_MS_PARAMS };
       }
     },
     
@@ -101,10 +116,10 @@ export const cellSlice = createSlice({
       state.showComparison = false;
     },
     
-    setComparisonResults: (state, action: PayloadAction<FhnResults>) => {
+    setComparisonResults: (state, action: PayloadAction<MsResults>) => {
       state.comparisonResults = action.payload;
-    },
-  },
+    }
+  }
 });
 
 export const { 

@@ -6,8 +6,8 @@ import './App.css';
 // Import models for simulation
 import { 
   applyStimulus, 
-  DEFAULT_FHN_PARAMS 
-} from './models/FitzHughNagumoModel';
+  DEFAULT_MS_PARAMS 
+} from './models/MitchellSchaefferModel';
 
 // Import components
 import ActionPotentialPlot from './components/Cell/ActionPotentialPlot';
@@ -29,8 +29,8 @@ function App() {
   
   // Run a simple simulation for initial display
   const initialSimulation = applyStimulus(
-    DEFAULT_FHN_PARAMS,
-    0.5,    // stimulus amplitude
+    DEFAULT_MS_PARAMS,
+    1.0,    // stimulus amplitude
     1.0,    // stimulus duration
     5.0,    // stimulus start time
     50      // timespan

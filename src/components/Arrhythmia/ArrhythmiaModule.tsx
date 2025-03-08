@@ -20,6 +20,17 @@ import ArrhythmiaVisualization from './ArrhythmiaVisualization';
 import S1S2Controls from './S1S2Controls';
 import { simulateArrhythmia, ArrhythmiaResults } from '../../models/ArrhythmiaModel';
 import ActionPotentialGraph from './ActionPotentialGraph';
+// Import educational components
+import EnhancedTooltip from '../Shared/EnhancedTooltip';
+import EducationalPanel from '../Shared/EducationalPanel';
+import SelfAssessmentQuiz from '../Shared/SelfAssessmentQuiz';
+// Import educational content
+import { 
+  arrhythmiaParameterTooltips, 
+  reentryEducation, 
+  fibrosisEducation, 
+  arrhythmiaModuleQuizQuestions 
+} from '../../data/arrhythmiaEducation';
 
 // Add this CSS at the top of the file, after imports
 const spinnerStyle = `
@@ -270,18 +281,15 @@ const ArrhythmiaModule: React.FC = () => {
       case ArrhythmiaType.REENTRY:
         return (
           <div>
-            <h3 className="text-lg font-semibold mb-2">Reentry</h3>
-            <p className="mb-2">
-              Reentry occurs when an electrical impulse returns to its point of origin and reactivates tissue that has already recovered.
-            </p>
-            <p className="mb-2">
-              Common conditions for reentry include:
-            </p>
-            <ul className="list-disc ml-6 mb-2">
-              <li>Conduction heterogeneity (slow pathways)</li>
-              <li>Unidirectional block</li>
-              <li>Shortened refractory periods</li>
-            </ul>
+            <EducationalPanel
+              title="Reentry Mechanisms"
+              basicContent={<div dangerouslySetInnerHTML={{ __html: reentryEducation.basic.content }} />}
+              intermediateContent={<div dangerouslySetInnerHTML={{ __html: reentryEducation.intermediate.content }} />}
+              advancedContent={<div dangerouslySetInnerHTML={{ __html: reentryEducation.advanced.content }} />}
+              clinicalRelevance={<div dangerouslySetInnerHTML={{ __html: reentryEducation.clinical.content }} />}
+              className="mb-6"
+            />
+            
             <p className="mt-4 text-sm text-blue-600">
               This simulation uses a specific S1-S2 protocol with a coupling interval of 345ms to reliably produce reentry.
             </p>
@@ -291,23 +299,15 @@ const ArrhythmiaModule: React.FC = () => {
       case ArrhythmiaType.FIBROSIS:
         return (
           <div>
-            <h3 className="text-lg font-semibold mb-2">Fibrosis Effects</h3>
-            <p className="mb-2">
-              Cardiac fibrosis is the excessive deposition of extracellular matrix in the heart, replacing contractile tissue with non-conductive scar tissue.
-            </p>
-            <p className="mb-2">
-              Impact on electrical propagation:
-            </p>
-            <ul className="list-disc ml-6 mb-2">
-              <li>Creation of conduction barriers</li>
-              <li>Zigzag conduction pathways (slower conduction)</li>
-              <li>Source-sink mismatches at tissue boundaries</li>
-              <li>Formation of reentry substrates</li>
-            </ul>
-            <p className="mb-2 text-gray-700">
-              Fibrotic regions are non-excitable, meaning they cannot be activated by electrical stimuli. 
-              Both S1 and S2 stimuli will have no effect on fibrotic tissue, creating barriers to propagation.
-            </p>
+            <EducationalPanel
+              title="Cardiac Fibrosis"
+              basicContent={<div dangerouslySetInnerHTML={{ __html: fibrosisEducation.basic.content }} />}
+              intermediateContent={<div dangerouslySetInnerHTML={{ __html: fibrosisEducation.intermediate.content }} />}
+              advancedContent={<div dangerouslySetInnerHTML={{ __html: fibrosisEducation.advanced.content }} />}
+              clinicalRelevance={<div dangerouslySetInnerHTML={{ __html: fibrosisEducation.clinical.content }} />}
+              className="mb-6"
+            />
+            
             <div className="my-3 bg-blue-50 p-2 rounded text-sm">
               <p className="font-medium mb-1">Fibrosis Patterns:</p>
               <ul className="list-disc ml-6 space-y-1">
@@ -316,6 +316,7 @@ const ArrhythmiaModule: React.FC = () => {
                 <li><span className="font-semibold">Diffuse:</span> Randomly distributed fibrotic cells, representing microscopic collagen deposits</li>
               </ul>
             </div>
+            
             <p className="mt-4 text-sm text-blue-600">
               This simulation uses the same S1-S2 protocol as the reentry case, but with added fibrosis to show how structural changes affect propagation.
             </p>
@@ -338,6 +339,11 @@ const ArrhythmiaModule: React.FC = () => {
           </div>
         );
     }
+  };
+  
+  // Handle cell click for action potential graph
+  const handleCellClick = (row: number, col: number) => {
+    setSelectedCell({ row, col });
   };
   
   return (
@@ -608,81 +614,93 @@ const ArrhythmiaModule: React.FC = () => {
           </div>
         </div>
         
-        {/* Visualization Panel */}
+        {/* Visualization and Educational Content */}
         <div className="lg:col-span-2">
-          {/* Arrhythmia Visualization */}
           <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
-            <h3 className="text-lg font-semibold mb-4">Tissue Visualization</h3>
+            <h3 className="text-lg font-semibold mb-4">Arrhythmia Visualization</h3>
             
-            {results ? (
-              <ArrhythmiaVisualization 
-                results={results}
-                currentTimeIndex={currentTimeIndex}
-                arrhythmiaType={selectedArrhythmiaType}
-                width={600}
-                height={400}
-                onCellClick={(row, col) => setSelectedCell({ row, col })}
-              />
-            ) : (
-              <div className="flex items-center justify-center h-96 bg-gray-100 rounded">
-                <p className="text-gray-500">Run a simulation to see arrhythmia patterns</p>
-              </div>
-            )}
-          </div>
-          
-          {/* Action Potential Graph */}
-          <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
-            <h3 className="text-lg font-semibold mb-4">
-              Action Potential
-              {selectedCell && (
-                <span className="text-sm font-normal text-gray-500 ml-2">
-                  (Cell {selectedCell.row}, {selectedCell.col})
-                </span>
-              )}
-            </h3>
-            <div style={{ height: '230px' }}>
-              {results ? (
-                <ActionPotentialGraph
+            <div className="relative">
+              {results && (
+                <ArrhythmiaVisualization
                   results={results}
-                  selectedCell={selectedCell}
+                  currentTimeIndex={currentTimeIndex}
+                  arrhythmiaType={selectedArrhythmiaType}
+                  onCellClick={handleCellClick}
                   width={600}
-                  height={200}
+                  height={400}
                 />
-              ) : (
-                <div className="flex items-center justify-center h-full bg-gray-100 rounded">
-                  <p className="text-gray-500">Run a simulation and click on a cell to view its action potential</p>
+              )}
+              
+              {!results && (
+                <div className="flex items-center justify-center h-96 bg-gray-100 rounded">
+                  <p className="text-gray-500">Run a simulation to see arrhythmia patterns</p>
                 </div>
+              )}
+              
+              {isAnimating && (
+                <button
+                  className="absolute top-2 right-2 bg-white bg-opacity-80 text-gray-800 px-2 py-1 rounded shadow-sm text-xs"
+                  onClick={toggleAnimation}
+                >
+                  Pause
+                </button>
+              )}
+              
+              {!isAnimating && results && (
+                <button
+                  className="absolute top-2 right-2 bg-white bg-opacity-80 text-gray-800 px-2 py-1 rounded shadow-sm text-xs"
+                  onClick={toggleAnimation}
+                >
+                  Play
+                </button>
               )}
             </div>
+            
+            {results && (
+              <div className="mt-2">
+                <input
+                  type="range"
+                  className="w-full"
+                  min={0}
+                  max={results.snapshots.length - 1}
+                  value={currentTimeIndex}
+                  onChange={(e) => dispatch(setCurrentArrhythmiaTimeIndex(parseInt(e.target.value)))}
+                />
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>0 ms</span>
+                  <span>{results.snapshots[results.snapshots.length - 1].time.toFixed(0)} ms</span>
+                </div>
+              </div>
+            )}
+            
             {selectedCell && results && (
-              <div className="mt-2 text-sm">
-                <div className="grid grid-cols-3 gap-2">
-                  {results.activationTimes && results.activationTimes[selectedCell.row]?.[selectedCell.col] > 0 && (
-                    <div className="bg-blue-50 p-2 rounded">
-                      <p className="font-medium">Activation Time:</p>
-                      <p>{results.activationTimes[selectedCell.row][selectedCell.col].toFixed(2)} ms</p>
-                    </div>
-                  )}
-                  {results.apd && results.apd[selectedCell.row]?.[selectedCell.col] > 0 && (
-                    <div className="bg-pink-50 p-2 rounded">
-                      <p className="font-medium">APD:</p>
-                      <p>{results.apd[selectedCell.row][selectedCell.col].toFixed(2)} ms</p>
-                    </div>
-                  )}
-                  <div className="bg-gray-50 p-2 rounded">
-                    <p className="font-medium">Current Voltage:</p>
-                    <p>
-                      {results.snapshots[currentTimeIndex]?.v[selectedCell.row]?.[selectedCell.col]?.toFixed(3) || 'N/A'}
-                    </p>
-                  </div>
+              <div className="mt-4">
+                <h4 className="font-medium text-gray-800 mb-2">
+                  Cell Action Potential at ({selectedCell.row}, {selectedCell.col})
+                </h4>
+                <div className="h-40">
+                  <ActionPotentialGraph
+                    results={results}
+                    selectedCell={selectedCell}
+                  />
                 </div>
               </div>
             )}
           </div>
           
-          {/* Educational Panel */}
-          <div className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4">
+          {/* Educational Content */}
+          <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
+            <h3 className="text-lg font-semibold mb-4">Educational Content</h3>
             {getEducationalContent()}
+          </div>
+          
+          {/* Quiz Component */}
+          <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
+            <SelfAssessmentQuiz
+              title="Test Your Knowledge: Arrhythmia Mechanisms"
+              questions={arrhythmiaModuleQuizQuestions}
+              className=""
+            />
           </div>
         </div>
       </div>

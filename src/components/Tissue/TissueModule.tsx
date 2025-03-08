@@ -29,6 +29,12 @@ import TissueVisualization from './TissueVisualization';
 import TissueCellActionPotential from './TissueCellActionPotential';
 import { createVoltageColorScale, createActivationTimeColorScale, createAPDColorScale } from '../../utils/colorScales';
 import SimulationProgress from '../common/SimulationProgress';
+// Import educational components
+import EnhancedTooltip from '../Shared/EnhancedTooltip';
+import EducationalPanel from '../Shared/EducationalPanel';
+import SelfAssessmentQuiz from '../Shared/SelfAssessmentQuiz';
+// Import educational content
+import { tissueParameterTooltips, tissueEducation, tissueModuleQuizQuestions } from '../../data/tissueEducation';
 
 const TissueModule: React.FC = () => {
   const dispatch = useDispatch();
@@ -433,79 +439,30 @@ const TissueModule: React.FC = () => {
             
             <div className="space-y-4">
               <div>
-                <label htmlFor="tissue-rows" className="block font-medium text-gray-700 mb-1">
-                  Rows: {tissueSize.rows}
-                </label>
-                <div className="flex items-center">
-                  <span className="text-sm text-gray-500 mr-2">20</span>
-                  <input
-                    id="tissue-rows"
-                    type="range"
-                    min="20"
-                    max="200"
-                    step="10"
-                    value={tissueSize.rows}
-                    onChange={(e) => {
-                      const rows = parseInt(e.target.value);
-                      setTissueSize(prev => ({ ...prev, rows }));
-                      dispatch(updateTissueParameters({ rows }));
-                    }}
-                    className="w-full"
-                  />
-                  <span className="text-sm text-gray-500 ml-2">200</span>
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Number of rows in the tissue grid (height)
-                </div>
-              </div>
-              
-              <div>
-                <label htmlFor="tissue-cols" className="block font-medium text-gray-700 mb-1">
-                  Columns: {tissueSize.cols}
-                </label>
-                <div className="flex items-center">
-                  <span className="text-sm text-gray-500 mr-2">20</span>
-                  <input
-                    id="tissue-cols"
-                    type="range"
-                    min="20"
-                    max="200"
-                    step="10"
-                    value={tissueSize.cols}
-                    onChange={(e) => {
-                      const cols = parseInt(e.target.value);
-                      setTissueSize(prev => ({ ...prev, cols }));
-                      dispatch(updateTissueParameters({ cols }));
-                    }}
-                    className="w-full"
-                  />
-                  <span className="text-sm text-gray-500 ml-2">200</span>
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Number of columns in the tissue grid (width)
-                </div>
-              </div>
-              
-              <div>
-                <label htmlFor="diffusion-coefficient" className="block font-medium text-gray-700 mb-1">
-                  Diffusion Coefficient: {params.diffusionCoefficient.toFixed(2)}
-                </label>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">{tissueParameterTooltips.diffusionCoefficient.title}</div>
+                    <div className="mb-2">{tissueParameterTooltips.diffusionCoefficient.content}</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: {tissueParameterTooltips.diffusionCoefficient.physiological}</div>
+                  </div>
+                }>
+                  <label htmlFor="diffusion-coefficient" className="block font-medium text-gray-700 mb-1">
+                    Diffusion Coefficient: {params.diffusionCoefficient.toFixed(2)}
+                  </label>
+                </EnhancedTooltip>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-500 mr-2">0.1</span>
                   <input
                     id="diffusion-coefficient"
                     type="range"
                     min="0.1"
-                    max="5"
+                    max="5.0"
                     step="0.1"
                     value={params.diffusionCoefficient}
                     onChange={(e) => handleTissueParamChange('diffusionCoefficient', parseFloat(e.target.value))}
                     className="w-full"
                   />
                   <span className="text-sm text-gray-500 ml-2">5.0</span>
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Controls conduction velocity in the tissue
                 </div>
               </div>
             </div>
@@ -517,9 +474,17 @@ const TissueModule: React.FC = () => {
             
             <div className="space-y-4">
               <div>
-                <label htmlFor="param-tau_in" className="block font-medium text-gray-700 mb-1">
-                  Parameter tau_in: {cellParams.tau_in.toFixed(2)}
-                </label>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">τ_in (Tau In)</div>
+                    <div className="mb-2">Controls the speed of depolarization (upstroke velocity). Lower values = faster depolarization.</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: Corresponds to sodium channel activation kinetics</div>
+                  </div>
+                }>
+                  <label htmlFor="param-tau_in" className="block font-medium text-gray-700 mb-1">
+                    Parameter tau_in: {cellParams.tau_in.toFixed(2)}
+                  </label>
+                </EnhancedTooltip>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-500 mr-2">0.0</span>
                   <input
@@ -534,15 +499,20 @@ const TissueModule: React.FC = () => {
                   />
                   <span className="text-sm text-gray-500 ml-2">1.0</span>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Controls time constant for inward current
-                </div>
               </div>
               
               <div>
-                <label htmlFor="param-tau_out" className="block font-medium text-gray-700 mb-1">
-                  Parameter tau_out: {cellParams.tau_out.toFixed(2)}
-                </label>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">τ_out (Tau Out)</div>
+                    <div className="mb-2">Controls the speed of repolarization. Higher values = longer action potential duration.</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: Corresponds to potassium channel kinetics</div>
+                  </div>
+                }>
+                  <label htmlFor="param-tau_out" className="block font-medium text-gray-700 mb-1">
+                    Parameter tau_out: {cellParams.tau_out.toFixed(2)}
+                  </label>
+                </EnhancedTooltip>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-500 mr-2">0.0</span>
                   <input
@@ -557,15 +527,20 @@ const TissueModule: React.FC = () => {
                   />
                   <span className="text-sm text-gray-500 ml-2">10.0</span>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Controls time constant for outward current
-                </div>
               </div>
               
               <div>
-                <label htmlFor="param-tau_open" className="block font-medium text-gray-700 mb-1">
-                  Parameter tau_open: {cellParams.tau_open.toFixed(2)}
-                </label>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">τ_open (Tau Open)</div>
+                    <div className="mb-2">Controls the recovery time for the h-gate. Higher values = longer refractory period.</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: Corresponds to recovery from inactivation of sodium channels</div>
+                  </div>
+                }>
+                  <label htmlFor="param-tau_open" className="block font-medium text-gray-700 mb-1">
+                    Parameter tau_open: {cellParams.tau_open.toFixed(2)}
+                  </label>
+                </EnhancedTooltip>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-500 mr-2">0.0</span>
                   <input
@@ -580,15 +555,20 @@ const TissueModule: React.FC = () => {
                   />
                   <span className="text-sm text-gray-500 ml-2">200</span>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Controls time constant for channel opening
-                </div>
               </div>
               
               <div>
-                <label htmlFor="param-tau_close" className="block font-medium text-gray-700 mb-1">
-                  Parameter tau_close: {cellParams.tau_close.toFixed(2)}
-                </label>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">τ_close (Tau Close)</div>
+                    <div className="mb-2">Controls the inactivation time for the h-gate. Lower values = faster inactivation.</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: Corresponds to sodium channel inactivation kinetics</div>
+                  </div>
+                }>
+                  <label htmlFor="param-tau_close" className="block font-medium text-gray-700 mb-1">
+                    Parameter tau_close: {cellParams.tau_close.toFixed(2)}
+                  </label>
+                </EnhancedTooltip>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-500 mr-2">0.0</span>
                   <input
@@ -603,39 +583,6 @@ const TissueModule: React.FC = () => {
                   />
                   <span className="text-sm text-gray-500 ml-2">200</span>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Controls time constant for channel closing
-                </div>
-              </div>
-              
-              <div>
-                <label htmlFor="param-v_gate" className="block font-medium text-gray-700 mb-1">
-                  Parameter v_gate: {cellParams.v_gate.toFixed(2)}
-                </label>
-                <div className="flex items-center">
-                  <span className="text-sm text-gray-500 mr-2">0.0</span>
-                  <input
-                    id="param-v_gate"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={cellParams.v_gate}
-                    onChange={(e) => handleCellParamChange('v_gate', parseFloat(e.target.value))}
-                    className="w-full"
-                  />
-                  <span className="text-sm text-gray-500 ml-2">1.0</span>
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Controls voltage-gated channel opening
-                </div>
-              </div>
-              
-              <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded">
-                <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> Cell parameters for tissue simulation often differ from single cell.
-                  For stable wave propagation, try a=0.45, b=0.23 instead of single-cell values.
-                </p>
               </div>
             </div>
           </div>
@@ -1088,6 +1035,24 @@ const TissueModule: React.FC = () => {
               </div>
             </div>
           )}
+          
+          {/* Add educational content after the simulation results */}
+          <div className="mt-8">
+            <EducationalPanel
+              title="Cardiac Tissue Propagation"
+              basicContent={<div dangerouslySetInnerHTML={{ __html: tissueEducation.basic.content }} />}
+              intermediateContent={<div dangerouslySetInnerHTML={{ __html: tissueEducation.intermediate.content }} />}
+              advancedContent={<div dangerouslySetInnerHTML={{ __html: tissueEducation.advanced.content }} />}
+              clinicalRelevance={<div dangerouslySetInnerHTML={{ __html: tissueEducation.clinical.content }} />}
+              className="mb-6"
+            />
+            
+            <SelfAssessmentQuiz
+              title="Test Your Knowledge: Cardiac Tissue Propagation"
+              questions={tissueModuleQuizQuestions}
+              className="mt-6"
+            />
+          </div>
         </div>
       </div>
     </div>

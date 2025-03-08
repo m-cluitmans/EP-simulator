@@ -14,6 +14,8 @@ interface S1S2Protocol {
   s2Duration: number;
   s2Location: { row: number, col: number, width: number, height: number };
   couplingInterval: number; // Time between S1 and S2 stimuli
+  s1Count: number; // Number of S1 stimuli
+  s1s2Interval: number; // Alternative name for couplingInterval for UI clarity
 }
 
 // Different types of arrhythmia mechanisms to demonstrate
@@ -52,6 +54,8 @@ const initialS1S2Protocol: S1S2Protocol = {
   s2Duration: 2.0,
   s2Location: { row: 30, col: 60, width: 20, height: 40 },
   couplingInterval: 345.0, // Default value for typical arrhythmia studies
+  s1Count: 0,
+  s1s2Interval: 345.0,
 };
 
 const initialState: ArrhythmiaState = {

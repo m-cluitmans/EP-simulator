@@ -344,17 +344,18 @@ export function stepTissue(
 }
 
 /**
- * Simulate the tissue for a given duration with the specified stimulus function
+ * Simulate tissue for a given duration with a specified stimulus function
  * 
  * @param params Tissue parameters
- * @param duration Total simulation duration (default 1000 for MS model)
- * @param stimulusFn Function to apply stimulus
- * @param saveInterval How often to save snapshots
- * @param hasObstacle Whether to include a conduction obstacle
- * @param obstacleCenter Center of the obstacle {row, col}
+ * @param duration Total simulation duration
+ * @param stimulusFn Function to apply stimulus at each time step
+ * @param saveInterval How often to save snapshots (in time units)
+ * @param hasObstacle Whether the tissue has a conduction obstacle
+ * @param obstacleCenter Center coordinates of obstacle {row, col}
  * @param obstacleRadius Radius of the obstacle
  * @param hasRepolarizationGradient Whether to apply repolarization gradient
  * @param tauCloseValues Tau close values for gradient {left, right}
+ * @param progressCallback Optional callback function to report progress (0-100)
  * @returns Simulation results
  */
 export function simulateTissue(
@@ -366,47 +367,61 @@ export function simulateTissue(
   obstacleCenter: {row: number, col: number} = {row: 0, col: 0},
   obstacleRadius: number = 10,
   hasRepolarizationGradient: boolean = false,
-  tauCloseValues: {left: number, right: number} = {left: 80, right: 80}
+  tauCloseValues: {left: number, right: number} = {left: 80, right: 80},
+  progressCallback?: (progress: number) => void
 ): TissueSimulationResults {
+  const { dt } = params;
+  
   // Initialize tissue
   let tissue = initializeTissue(params);
   
-  // Apply circular obstacle if enabled
+  // Apply obstacle if requested
   if (hasObstacle) {
-    tissue = applyCircularObstacle(
-      tissue, 
-      obstacleCenter.row, 
-      obstacleCenter.col, 
-      obstacleRadius
-    );
+    tissue = applyCircularObstacle(tissue, obstacleCenter.row, obstacleCenter.col, obstacleRadius);
   }
   
-  // Initialize results
-  const results: TissueSimulationResults = {
-    snapshots: [],
-    activationTimes: Array(params.rows).fill(0).map(() => Array(params.cols).fill(-1)),
-    apd: Array(params.rows).fill(0).map(() => Array(params.cols).fill(0))
-  };
+  // Store results
+  const snapshots: TissueData[] = [];
   
-  // Activation threshold for detecting when a cell activates
+  // Parameters for activation time tracking
+  const { rows, cols } = params;
+  const activationTimes: number[][] = Array(rows).fill(0).map(() => Array(cols).fill(-1));
+  const apd: number[][] = Array(rows).fill(0).map(() => Array(cols).fill(-1));
+  
+  // Track state for APD calculation
+  const activationState: Array<Array<'resting' | 'activated' | 'recovered'>> = 
+    Array(rows).fill(0).map(() => Array(cols).fill('resting'));
+  
+  // Time of first activation for APD calculation
+  const activationStartTime: number[][] = Array(rows).fill(0).map(() => Array(cols).fill(-1));
+  
+  // Threshold for activation detection
   const activationThreshold = 0.3;
   
-  // Arrays to track cell state for APD calculation
-  const activationTime = Array(params.rows).fill(0).map(() => Array(params.cols).fill(-1));
-  const isActivated = Array(params.rows).fill(0).map(() => Array(params.cols).fill(false));
+  // Run simulation for the specified duration
+  let nextSaveTime = 0;
+  // Calculate total steps - useful for progress updates
+  const numSteps = Math.ceil(duration / dt);
+  let stepCount = 0;
   
   // Save initial state
-  results.snapshots.push(JSON.parse(JSON.stringify(tissue)));
+  snapshots.push(JSON.parse(JSON.stringify(tissue)));
   
-  // Run simulation for the specified duration
-  let nextSaveTime = saveInterval;
-  
-  while (tissue.time < duration) {
-    // Step the simulation
+  for (let time = 0; time < duration; time += dt) {
+    // Update progress roughly every 100 steps or at the end
+    if (progressCallback && (stepCount % 100 === 0 || time + dt >= duration)) {
+      const progress = Math.round((time / duration) * 100);
+      progressCallback(progress);
+    }
+    
+    // Apply stimulus for this time step
+    tissue = stimulusFn(tissue, time);
+    
+    // Perform a simulation step
     tissue = stepTissue(
       tissue, 
       params, 
-      stimulusFn,
+      (t) => t, // No additional stimulus here since we apply it before
       hasObstacle,
       obstacleCenter,
       obstacleRadius,
@@ -414,49 +429,63 @@ export function simulateTissue(
       tauCloseValues
     );
     
-    // Track activation times and APD
-    for (let i = 0; i < params.rows; i++) {
-      for (let j = 0; j < params.cols; j++) {
-        // Skip obstacle cells
+    // Save snapshots at regular intervals
+    if (time >= nextSaveTime) {
+      // Create a deep copy to avoid reference issues
+      snapshots.push(JSON.parse(JSON.stringify(tissue)));
+      nextSaveTime += saveInterval;
+    }
+    
+    // Record activation times and APD
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < cols; j++) {
+        // Skip obstacle areas (cells that don't activate)
         if (hasObstacle) {
-          const distance = Math.sqrt(Math.pow(i - obstacleCenter.row, 2) + Math.pow(j - obstacleCenter.col, 2));
-          if (distance <= obstacleRadius) {
+          const dx = i - obstacleCenter.row;
+          const dy = j - obstacleCenter.col;
+          const distanceSquared = dx * dx + dy * dy;
+          if (distanceSquared <= obstacleRadius * obstacleRadius) {
             continue;
           }
         }
         
-        // Detect activation
-        if (!isActivated[i][j] && tissue.v[i][j] > activationThreshold) {
-          isActivated[i][j] = true;
-          activationTime[i][j] = tissue.time;
-          
-          // If this is the first activation for this cell, record it
-          if (results.activationTimes[i][j] < 0) {
-            results.activationTimes[i][j] = tissue.time;
-          }
+        const voltage = tissue.v[i][j];
+        
+        // Record local activation time (first time crossing threshold)
+        if (activationTimes[i][j] < 0 && voltage >= activationThreshold) {
+          activationTimes[i][j] = time;
         }
         
-        // Detect repolarization for APD calculation
-        if (isActivated[i][j] && tissue.v[i][j] < activationThreshold) {
-          // Only calculate APD if we have a valid activation time
-          if (activationTime[i][j] >= 0) {
-            // APD is the time from activation to repolarization
-            results.apd[i][j] = tissue.time - activationTime[i][j];
-          }
-          
-          // Reset for next action potential
-          isActivated[i][j] = false;
-          activationTime[i][j] = -1;
+        // Track APD (Action Potential Duration)
+        switch (activationState[i][j]) {
+          case 'resting':
+            if (voltage >= activationThreshold) {
+              // Cell just activated
+              activationState[i][j] = 'activated';
+              activationStartTime[i][j] = time;
+            }
+            break;
+            
+          case 'activated':
+            if (voltage < activationThreshold) {
+              // Cell just repolarized - calculate APD
+              activationState[i][j] = 'recovered';
+              apd[i][j] = time - activationStartTime[i][j];
+            }
+            break;
+            
+          // Let recovered cells stay recovered for this simulation
+          // In longer simulations, we'd reset to 'resting' after a recovery time
         }
       }
     }
     
-    // Save snapshots at the specified interval
-    if (tissue.time >= nextSaveTime) {
-      results.snapshots.push(JSON.parse(JSON.stringify(tissue)));
-      nextSaveTime += saveInterval;
-    }
+    stepCount++;
   }
   
-  return results;
+  return {
+    snapshots,
+    activationTimes,
+    apd
+  };
 } 

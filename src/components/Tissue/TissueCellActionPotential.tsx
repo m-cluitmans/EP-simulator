@@ -27,7 +27,7 @@ const TissueCellActionPotential: React.FC<TissueCellActionPotentialProps> = ({
     svg.selectAll('*').remove();
     
     // If no results or no selected cell, don't render anything
-    if (!results || !selectedCell || !results.snapshots || results.snapshots.length === 0) {
+    if (!results || !selectedCell) {
       // Display a message when no cell is selected
       svg
         .append('text')
@@ -42,7 +42,27 @@ const TissueCellActionPotential: React.FC<TissueCellActionPotentialProps> = ({
       return;
     }
     
+    // Add debug info to check if we have valid snapshots
+    if (!results.snapshots || results.snapshots.length === 0) {
+      svg
+        .append('text')
+        .attr('x', width / 2)
+        .attr('y', height / 2)
+        .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'middle')
+        .style('font-size', '14px')
+        .style('fill', 'red')
+        .text('No simulation snapshots available');
+      
+      console.error('No snapshots in results:', results);
+      return;
+    }
+    
     const { row, col } = selectedCell;
+    
+    // Logging for debugging
+    console.log(`Attempting to plot action potential for cell (${row}, ${col})`);
+    console.log(`Results have ${results.snapshots.length} snapshots`);
     
     // Make sure the selected cell is within bounds
     if (row < 0 || row >= results.snapshots[0].v.length || 
@@ -56,36 +76,41 @@ const TissueCellActionPotential: React.FC<TissueCellActionPotentialProps> = ({
         .style('font-size', '14px')
         .style('fill', 'red')
         .text(`Cell coordinates (${row}, ${col}) out of bounds`);
+        
+      console.error('Cell coordinates out of bounds:', row, col, 'Grid size:', 
+                   results.snapshots[0].v.length, results.snapshots[0].v[0].length);
       return;
     }
     
     try {
       // Extract voltage data for the selected cell across all time points
-      // Use the time from each snapshot instead of calculating it
       const timePoints = results.snapshots.map(snapshot => snapshot.time);
       
-      const voltageData = results.snapshots.map(snapshot => {
-        try {
-          return snapshot.v[row][col];
-        } catch (e) {
-          console.error('Error accessing data at', row, col, e);
-          return null;
-        }
-      }).filter(v => v !== null) as number[];
+      // Add validation to ensure the data exists
+      const voltageData: number[] = [];
+      let missingDataCount = 0;
       
-      // Check if we have valid data
-      if (voltageData.length === 0 || timePoints.length === 0) {
-        svg
-          .append('text')
-          .attr('x', width / 2)
-          .attr('y', height / 2)
-          .attr('text-anchor', 'middle')
-          .attr('dominant-baseline', 'middle')
-          .style('font-size', '14px')
-          .style('fill', 'red')
-          .text('No valid voltage data available for this cell');
-        return;
+      for (let i = 0; i < results.snapshots.length; i++) {
+        const snapshot = results.snapshots[i];
+        if (snapshot.v && 
+            snapshot.v[row] && 
+            typeof snapshot.v[row][col] === 'number') {
+          voltageData.push(snapshot.v[row][col]);
+        } else {
+          missingDataCount++;
+          // Use previous value or 0 if no previous value
+          voltageData.push(voltageData.length > 0 ? voltageData[voltageData.length - 1] : 0);
+        }
       }
+      
+      if (missingDataCount > 0) {
+        console.warn(`Missing data for ${missingDataCount} out of ${results.snapshots.length} time points`);
+      }
+      
+      // Logging for debugging
+      console.log(`Successfully extracted voltage data: ${voltageData.length} points`);
+      console.log('Time range:', Math.min(...timePoints), 'to', Math.max(...timePoints));
+      console.log('Voltage range:', Math.min(...voltageData), 'to', Math.max(...voltageData));
       
       // Combine time and voltage into data points
       const data = timePoints.slice(0, voltageData.length).map((time, i) => ({

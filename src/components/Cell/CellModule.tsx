@@ -18,7 +18,8 @@ import {
   CELL_PRESETS
 } from '../../store/slices/cellSlice';
 import ActionPotentialPlot from './ActionPotentialPlot';
-import { useSimulation, SimulationStatus } from '../../hooks/useSimulation';
+import { useSimulation, SimulationStatus, SimulationType } from '../../hooks/useSimulation';
+import SimulationProgress from '../common/SimulationProgress';
 
 const CellModule: React.FC = () => {
   const dispatch = useDispatch();
@@ -34,7 +35,7 @@ const CellModule: React.FC = () => {
     amplitude: 1.0,
     duration: 1.0,
     startTime: 5.0,
-    timeSpan: 50
+    timeSpan: 500
   });
   
   const [highlightPhases, setHighlightPhases] = useState(true);
@@ -47,7 +48,9 @@ const CellModule: React.FC = () => {
   const { 
     status: simulationStatus, 
     results: simulationResults, 
-    runSimulation
+    runSimulation,
+    getDebugInfo,
+    cancelSimulation
   } = useSimulation<Record<string, unknown>, MsResults>(
     (simulationParams) => {
       // Extract parameters with fallbacks
@@ -67,7 +70,8 @@ const CellModule: React.FC = () => {
       
       // Run simulation with parameters
       return applyStimulus(msParams, amplitude, duration, startTime, timeSpan);
-    }
+    },
+    SimulationType.CELL // Specify this is a cell simulation
   );
   
   // Update results when simulation completes
@@ -88,11 +92,35 @@ const CellModule: React.FC = () => {
   
   // Run current simulation
   const runCurrentSimulation = () => {
-    // Run the simulation with current parameters
-    runSimulation({
-      ...params,
-      ...stimulusParams
-    });
+    // Create properly structured parameters for the simulation
+    const simulationParams = {
+      // Cell model parameters - should be in params property
+      params: {
+        tau_in: params.tau_in,
+        tau_out: params.tau_out,
+        tau_open: params.tau_open,
+        tau_close: params.tau_close,
+        v_gate: params.v_gate,
+        dt: params.dt
+      },
+      
+      // Simulation parameters
+      timeSpan: 500, // Set a longer timespan (500ms)
+      initialV: 0,    // Start at resting potential
+      initialH: 1,    // Gate fully available
+      
+      // Stimulus parameters if enabled
+      stimulusFn: {
+        amplitude: stimulusParams.amplitude,
+        duration: stimulusParams.duration,
+        start: stimulusParams.startTime
+      }
+    };
+    
+    console.log("Running cell simulation with parameters:", simulationParams);
+    
+    // Run the simulation with properly structured parameters
+    runSimulation(simulationParams);
   };
   
   // Handle parameter changes
@@ -487,6 +515,19 @@ const CellModule: React.FC = () => {
               action potential duration, or τᵢₙ to change upstroke velocity.
             </p>
           </div>
+          
+          {/* Add the simulation progress component */}
+          {simulationStatus !== SimulationStatus.IDLE && (
+            <div className="my-4">
+              <SimulationProgress 
+                status={simulationStatus}
+                progress={simulationStatus === SimulationStatus.COMPLETED ? 100 : 0}
+                estimatedTimeRemaining={null}
+                onCancel={cancelSimulation}
+                getDebugInfo={getDebugInfo}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

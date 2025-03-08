@@ -24,18 +24,19 @@ import {
   resetTissueState,
   VisualizationMode
 } from '../../store/slices/tissueSlice';
-import { useSimulation, SimulationStatus } from '../../hooks/useSimulation';
+import { useSimulation, SimulationStatus, SimulationType } from '../../hooks/useSimulation';
 import TissueVisualization from './TissueVisualization';
 import TissueCellActionPotential from './TissueCellActionPotential';
 import { createVoltageColorScale, createActivationTimeColorScale, createAPDColorScale } from '../../utils/colorScales';
+import SimulationProgress from '../common/SimulationProgress';
 
 const TissueModule: React.FC = () => {
   const dispatch = useDispatch();
-  const { 
-    params, 
-    currentData, 
-    results, 
-    simulationInProgress, 
+  const {
+    params,
+    currentData,
+    results,
+    simulationInProgress,
     currentTimeIndex,
     visualizationMode,
     diffusionGradient,
@@ -46,42 +47,10 @@ const TissueModule: React.FC = () => {
   // State for selected cell
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
   
-  // Repolarization gradient state
-  const [repolarizationGradient, setRepolarizationGradient] = useState({
-    left: 60,  // Default left side tau_close value
-    right: 100 // Default right side tau_close value
-  });
-  
   // Animation state
   const [isAnimating, setIsAnimating] = useState(false);
   const [animationSpeed, setAnimationSpeed] = useState(1); // frames per second
   const animationRef = useRef<number | null>(null);
-  
-  // Stimulus parameters
-  const [stimulusParams, setStimulusParams] = useState({
-    protocol: 'planarWave', // 'planarWave' or 's1s2'
-    s1Amplitude: 1.0,
-    s1Duration: 1.0,
-    s1StartTime: 1.0,
-    s2Amplitude: 1.0,
-    s2Duration: 1.0,
-    s2StartTime: 30.0,
-    simulationDuration: 1000  // Increased to 1000ms for better MS model visualization
-  });
-  
-  // Cell model parameters
-  const [cellParams, setCellParams] = useState({
-    tau_in: params.tau_in,
-    tau_out: params.tau_out,
-    tau_open: params.tau_open,
-    tau_close: params.tau_close,
-    v_gate: params.v_gate
-  });
-  
-  const [tissueSize, setTissueSize] = useState({
-    rows: params.rows,
-    cols: params.cols
-  });
   
   // Reference to colorScale functions
   const colorScales = useRef({
@@ -111,21 +80,84 @@ const TissueModule: React.FC = () => {
     }
   }, [results]);
   
+  // Add local state for the properties that don't exist in the Redux state
+  const [tissueSize, setTissueSize] = useState({
+    rows: params.rows,
+    cols: params.cols
+  });
+  
+  // Cell model parameters as local state
+  const [cellParams, setCellParams] = useState({
+    tau_in: params.tau_in,
+    tau_out: params.tau_out,
+    tau_open: params.tau_open,
+    tau_close: params.tau_close,
+    v_gate: params.v_gate
+  });
+  
+  // Stimulus parameters as local state
+  const [stimulusParams, setStimulusParams] = useState({
+    protocol: 'planarWave', // 'planarWave' or 's1s2'
+    s1Amplitude: 1.0,
+    s1Duration: 1.0,
+    s1StartTime: 1.0,
+    s2Amplitude: 1.0,
+    s2Duration: 1.0,
+    s2StartTime: 30.0,
+    simulationDuration: 100 // Simulation duration in ms
+  });
+  
+  // Repolarization gradient state
+  const [repolarizationGradient, setRepolarizationGradient] = useState({
+    left: 60,  // Default left side tau_close value
+    right: 100 // Default right side tau_close value
+  });
+  
+  // Add an effect to reset selected cell when results change
+  useEffect(() => {
+    // Reset selected cell when results change (new simulation run)
+    setSelectedCell(null);
+    console.log("Results changed, resetting selected cell");
+  }, [results]);
+  
+  // Add an effect to sync tissueSize with Redux params
+  useEffect(() => {
+    // Keep local tissueSize in sync with Redux params
+    setTissueSize({
+      rows: params.rows,
+      cols: params.cols
+    });
+  }, [params.rows, params.cols]);
+  
   // Handle cell click
   const handleCellClick = (row: number, col: number) => {
+    console.log(`Cell click at (${row}, ${col})`);
+    
     // Validate that the coordinates are within bounds
-    if (currentData && row >= 0 && row < currentData.v.length && 
-        col >= 0 && col < currentData.v[0].length) {
-      // Update selected cell
+    if (results && results.snapshots && results.snapshots.length > 0 &&
+        row >= 0 && row < results.snapshots[0].v.length && 
+        col >= 0 && col < results.snapshots[0].v[0].length) {
+      console.log(`Setting selected cell to (${row}, ${col})`);
       setSelectedCell({ row, col });
+    } else {
+      console.error('Invalid cell coordinates or missing results:', {
+        hasResults: !!results,
+        hasSnapshots: results && !!results.snapshots,
+        snapshotCount: results && results.snapshots ? results.snapshots.length : 0,
+        row,
+        col
+      });
     }
   };
   
   // Use simulation hook for tissue simulation
   const { 
-    status: simulationStatus, 
+    status, 
     results: simulationResults, 
-    runSimulation 
+    runSimulation,
+    getDebugInfo,
+    cancelSimulation,
+    estimatedTimeRemaining
   } = useSimulation<Record<string, unknown>, TissueSimulationResults>(
     (simulationParams) => {
       // Extract parameters with fallbacks - using improved values optimized for tissue
@@ -134,109 +166,73 @@ const TissueModule: React.FC = () => {
         cols: simulationParams.cols as number || 50,
         diffusionCoefficient: simulationParams.diffusionCoefficient as number || 1.0,
         deltax: simulationParams.deltax as number || 1.0,
-        
-        // Use the user-specified cell parameters 
-        tau_in: simulationParams.tau_in as number || 0.3,
-        tau_out: simulationParams.tau_out as number || 6.0,
-        tau_open: simulationParams.tau_open as number || 120.0,
-        tau_close: simulationParams.tau_close as number || 80.0,
-        v_gate: simulationParams.v_gate as number || 0.13,
-        dt: simulationParams.dt as number || 0.01
+        tau_in: simulationParams.tau_in as number || 0.3,      // Fast depolarization
+        tau_out: simulationParams.tau_out as number || 6.0,     // Moderate repolarization
+        tau_open: simulationParams.tau_open as number || 120.0,  // Slow recovery
+        tau_close: simulationParams.tau_close as number || 80.0,  // Moderate gate closing
+        v_gate: simulationParams.v_gate as number || 0.13,     // Standard threshold
+        dt: simulationParams.dt as number || 0.05              // Time step, increased for tissue
       };
       
-      // Determine which stimulus protocol to use
-      const protocol = simulationParams.protocol as string || 'planarWave';
-      const duration = simulationParams.simulationDuration as number || 100;
-      
-      let stimulationFunction;
-      if (protocol === 's1s2') {
-        stimulationFunction = (tissue: TissueData, time: number) => {
-          return s1s2StimulusProtocol(
-            tissue,
-            time,
-            simulationParams.s1StartTime as number || 1.0,
-            simulationParams.s1Duration as number || 1.0,
-            simulationParams.s2StartTime as number || 30.0,
-            simulationParams.s2Duration as number || 1.0
-          );
-        };
-      } else {
-        // Default to planar wave
-        stimulationFunction = (tissue: TissueData, time: number) => {
-          return planarWaveStimulus(
-            tissue,
-            time,
-            simulationParams.s1StartTime as number || 1.0,
-            simulationParams.s1Duration as number || 1.0,
-            5 // width of stimulus
-          );
-        };
-      }
-      
-      // Get obstacle settings
-      const obstacleEnabled = simulationParams.conductionObstacle as boolean || false;
-      const obstacleCoords = simulationParams.obstacleCoordinates as any || { 
-        row: Math.floor(tissueParams.rows / 2), 
-        col: Math.floor(tissueParams.cols / 2), 
-        width: 15, 
-        height: 15 
-      };
-      
-      // Get repolarization gradient settings
-      const gradientEnabled = simulationParams.diffusionGradient as boolean || false;
-      const gradientValues = simulationParams.repolarizationGradient as any || {
-        left: 60,
-        right: 100
-      };
-      
-      // Run the simulation with the new parameters
+      // Run the simulation
       return simulateTissue(
         tissueParams,
-        duration,
-        stimulationFunction,
-        2.0, // Save interval
-        obstacleEnabled,
-        { row: obstacleCoords.row, col: obstacleCoords.col },
-        obstacleCoords.width / 2, // Radius is half of width
-        gradientEnabled,
-        { left: gradientValues.left, right: gradientValues.right }
+        simulationParams.duration as number || 50,
+        simulationParams.stimulusType === 'planar' ? 
+          (tissue, time) => planarWaveStimulus(
+            tissue, 
+            time, 
+            simulationParams.stimulusStartTime as number || 1.0,
+            simulationParams.stimulusDuration as number || 1.0,
+            simulationParams.stimulusWidth as number || 5
+          ) :
+          simulationParams.stimulusType === 's1s2' ?
+            (tissue, time) => s1s2StimulusProtocol(
+              tissue,
+              time,
+              simulationParams.s1StartTime as number || 1.0,
+              simulationParams.s1Duration as number || 1.0,
+              simulationParams.s2StartTime as number || 150.0,
+              simulationParams.s2Duration as number || 1.0
+            ) :
+            (tissue) => tissue,
+        2.0,
+        simulationParams.hasObstacle as boolean || false,
+        simulationParams.obstacleCenter as {row: number, col: number} || {row: 0, col: 0},
+        simulationParams.obstacleRadius as number || 10,
+        simulationParams.hasRepolarizationGradient as boolean || false,
+        simulationParams.tauCloseValues as {left: number, right: number} || {left: 80, right: 80}
       );
-    }
+    },
+    SimulationType.TISSUE // Specify this is a tissue simulation
   );
   
   // Update results when simulation completes
   useEffect(() => {
-    if (simulationStatus === SimulationStatus.COMPLETED && simulationResults) {
+    if (status === SimulationStatus.COMPLETED && simulationResults) {
       dispatch(setTissueResults(simulationResults));
       dispatch(setCurrentTimeIndex(0));
       dispatch(setTissueSimulationStatus(false));
-    } else if (simulationStatus === SimulationStatus.RUNNING) {
+    } else if (status === SimulationStatus.RUNNING) {
       dispatch(setTissueSimulationStatus(true));
-    } else if (simulationStatus === SimulationStatus.ERROR) {
+    } else if (status === SimulationStatus.ERROR) {
       console.error('Simulation failed');
       dispatch(setTissueSimulationStatus(false));
     }
-  }, [simulationStatus, simulationResults, dispatch]);
+  }, [status, simulationResults, dispatch]);
   
   // Reset selected cell when changing visualization mode
   useEffect(() => {
     setSelectedCell(null);
   }, [visualizationMode]);
   
-  // Reset selected cell when starting a new simulation
-  useEffect(() => {
-    if (simulationInProgress) {
-      setSelectedCell(null);
-    }
-  }, [simulationInProgress]);
-  
   // Run current simulation
   const runTissueSimulation = () => {
+    // Reset selected cell when starting a new simulation
+    setSelectedCell(null);
+    
     // Stop any ongoing animation
     stopAnimation();
-    
-    // Reset selected cell when running a new simulation
-    setSelectedCell(null);
     
     // Immediately update params if tissue size has changed
     if (params.rows !== tissueSize.rows || params.cols !== tissueSize.cols) {
@@ -255,31 +251,58 @@ const TissueModule: React.FC = () => {
       col: Math.floor(tissueSize.cols / 2)
     };
     
-    // Create simulation parameters that use the updated values directly
+    // Create properly structured parameters matching the expected worker format
     const simulationParams = {
-      ...params,
-      rows: tissueSize.rows,  // Use direct values
-      cols: tissueSize.cols,  // Use direct values
-      ...cellParams,          // Include cell parameters
-      protocol: stimulusParams.protocol,
-      s1StartTime: stimulusParams.s1StartTime,
-      s1Duration: stimulusParams.s1Duration,
-      s1Amplitude: stimulusParams.s1Amplitude,
-      s2StartTime: stimulusParams.s2StartTime,
-      s2Duration: stimulusParams.s2Duration,
-      s2Amplitude: stimulusParams.s2Amplitude,
-      simulationDuration: stimulusParams.simulationDuration,
-      
-      // Tissue features
-      conductionObstacle,
-      obstacleCoordinates: {
-        ...obstacleCoordinates,
-        row: obstacleCenter.row,
-        col: obstacleCenter.col
+      // Cell and tissue parameters inside the params property
+      params: {
+        tau_in: cellParams.tau_in,
+        tau_out: cellParams.tau_out,
+        tau_open: cellParams.tau_open,
+        tau_close: cellParams.tau_close,
+        v_gate: cellParams.v_gate,
+        dt: 0.05, // Fixed time step
+        rows: tissueSize.rows,
+        cols: tissueSize.cols,
+        diffusionCoefficient: params.diffusionCoefficient || 0.1,
+        deltax: params.deltax || 1.0
       },
-      diffusionGradient,
-      repolarizationGradient
+      
+      // Specify duration and stimulus type (required by worker)
+      duration: stimulusParams.simulationDuration,
+      stimulusType: stimulusParams.protocol === 's1s2' ? 's1s2' : 'planar',
+      
+      // Stimulus parameters
+      stimulusParams: {
+        // Common parameters
+        startTime: stimulusParams.s1StartTime,
+        duration: stimulusParams.s1Duration,
+        width: 5,
+        
+        // S1-S2 specific parameters
+        s1StartTime: stimulusParams.s1StartTime,
+        s1Duration: stimulusParams.s1Duration,
+        s2StartTime: stimulusParams.s2StartTime, 
+        s2Duration: stimulusParams.s2Duration
+      },
+      
+      // Obstacle configuration
+      hasObstacle: conductionObstacle,
+      obstacleCenter: obstacleCoordinates ? 
+        { row: obstacleCoordinates.row, col: obstacleCoordinates.col } :
+        obstacleCenter,
+      obstacleRadius: obstacleCoordinates ? 
+        Math.min(obstacleCoordinates.width, obstacleCoordinates.height) / 2 : 
+        10,
+      
+      // Repolarization gradient
+      hasRepolarizationGradient: diffusionGradient,
+      tauCloseValues: {
+        left: repolarizationGradient.left,
+        right: repolarizationGradient.right
+      }
     };
+    
+    console.log("Running tissue simulation with parameters:", simulationParams);
     
     // Run the simulation
     runSimulation(simulationParams);
@@ -367,23 +390,39 @@ const TissueModule: React.FC = () => {
     dispatch(setObstacleCoordinates(coords));
   };
   
-  // Loading spinner component
-  const LoadingSpinner = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-t-4 border-blue-600 mb-4"></div>
-        <p className="text-lg font-semibold text-gray-800">Running Simulation...</p>
-        <p className="text-sm text-gray-600 mt-2">This may take a moment. Longer simulations require more time.</p>
-      </div>
-    </div>
-  );
+  // Fix the repolarization gradient control value change handlers
+  // onChange handler for left value
+  const handleLeftGradientChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setRepolarizationGradient(prev => ({
+      ...prev,
+      left: parseInt(e.target.value)
+    }));
+  };
+  
+  // onChange handler for right value
+  const handleRightGradientChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setRepolarizationGradient(prev => ({
+      ...prev,
+      right: parseInt(e.target.value)
+    }));
+  };
   
   return (
     <div className="p-4">
       <h2 className="text-2xl font-bold mb-4">Tissue Propagation</h2>
       
       {/* Show loading spinner during simulation */}
-      {simulationInProgress && <LoadingSpinner />}
+      {(status === SimulationStatus.RUNNING || results) && (
+        <div className="my-4">
+          <SimulationProgress 
+            status={status}
+            progress={status === SimulationStatus.COMPLETED ? 100 : status === SimulationStatus.RUNNING ? 50 : 0}
+            estimatedTimeRemaining={estimatedTimeRemaining}
+            onCancel={cancelSimulation}
+            getDebugInfo={getDebugInfo}
+          />
+        </div>
+      )}
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Controls Panel */}
@@ -406,10 +445,11 @@ const TissueModule: React.FC = () => {
                     max="200"
                     step="10"
                     value={tissueSize.rows}
-                    onChange={(e) => setTissueSize(prev => ({ 
-                      ...prev, 
-                      rows: parseInt(e.target.value) 
-                    }))}
+                    onChange={(e) => {
+                      const rows = parseInt(e.target.value);
+                      setTissueSize(prev => ({ ...prev, rows }));
+                      dispatch(updateTissueParameters({ rows }));
+                    }}
                     className="w-full"
                   />
                   <span className="text-sm text-gray-500 ml-2">200</span>
@@ -432,10 +472,11 @@ const TissueModule: React.FC = () => {
                     max="200"
                     step="10"
                     value={tissueSize.cols}
-                    onChange={(e) => setTissueSize(prev => ({ 
-                      ...prev, 
-                      cols: parseInt(e.target.value) 
-                    }))}
+                    onChange={(e) => {
+                      const cols = parseInt(e.target.value);
+                      setTissueSize(prev => ({ ...prev, cols }));
+                      dispatch(updateTissueParameters({ cols }));
+                    }}
                     className="w-full"
                   />
                   <span className="text-sm text-gray-500 ml-2">200</span>
@@ -818,10 +859,7 @@ const TissueModule: React.FC = () => {
                           max="120"
                           step="5"
                           value={repolarizationGradient.left}
-                          onChange={(e) => setRepolarizationGradient(prev => ({
-                            ...prev,
-                            left: parseInt(e.target.value)
-                          }))}
+                          onChange={handleLeftGradientChange}
                           className="w-full"
                         />
                       </div>
@@ -835,10 +873,7 @@ const TissueModule: React.FC = () => {
                           max="120"
                           step="5"
                           value={repolarizationGradient.right}
-                          onChange={(e) => setRepolarizationGradient(prev => ({
-                            ...prev,
-                            right: parseInt(e.target.value)
-                          }))}
+                          onChange={handleRightGradientChange}
                           className="w-full"
                         />
                       </div>
@@ -857,9 +892,9 @@ const TissueModule: React.FC = () => {
               <button
                 onClick={runTissueSimulation}
                 className="w-full bg-primary text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors flex items-center justify-center"
-                disabled={simulationInProgress}
+                disabled={status === SimulationStatus.RUNNING}
               >
-                {simulationInProgress ? (
+                {status === SimulationStatus.RUNNING ? (
                   <>
                     <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -878,7 +913,7 @@ const TissueModule: React.FC = () => {
                   className={`px-3 py-2 rounded ${
                     isAnimating ? 'bg-green-600 text-white' : 'bg-gray-200 hover:bg-gray-300'
                   }`}
-                  disabled={!results || simulationInProgress}
+                  disabled={!results || status === SimulationStatus.RUNNING}
                 >
                   {isAnimating ? 'Playing' : 'Play'}
                 </button>
@@ -894,7 +929,7 @@ const TissueModule: React.FC = () => {
               <button
                 onClick={resetSimulation}
                 className="w-full bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 transition-colors"
-                disabled={simulationInProgress}
+                disabled={status === SimulationStatus.RUNNING}
               >
                 Reset
               </button>
@@ -967,15 +1002,16 @@ const TissueModule: React.FC = () => {
             
             {/* Tissue Visualization Component */}
             <div className="border rounded p-1">
-              {currentData ? (
+              {results ? (
                 <TissueVisualization
                   visualizationMode={visualizationMode}
-                  currentData={currentData}
+                  currentData={currentData || (results && results.snapshots.length > 0 ? results.snapshots[currentTimeIndex] : null)}
                   results={results}
                   cellSize={Math.min(Math.floor(600 / params.cols), Math.floor(400 / params.rows))}
                   colorScales={colorScales.current}
                   onCellClick={handleCellClick}
                   selectedCell={selectedCell}
+                  useWebGL={true}
                 />
               ) : (
                 <div className="flex items-center justify-center h-96 bg-gray-100 rounded">
@@ -989,11 +1025,16 @@ const TissueModule: React.FC = () => {
           
           {/* Action potential visualization for selected cell */}
           {selectedCell && (
-            <div className="bg-white rounded-lg shadow-lg p-4">
+            <div className="bg-white p-4 rounded-lg shadow">
               <h3 className="text-lg font-semibold mb-2">Cell Action Potential</h3>
               <p className="text-sm mb-2 text-gray-700">
                 Selected Cell: Row {selectedCell.row}, Column {selectedCell.col}
               </p>
+              <div className="mb-2 text-xs text-gray-600">
+                {results && results.snapshots && results.snapshots.length > 0 ? 
+                  `Showing data from ${results.snapshots.length} time points` : 
+                  'No time points available'}
+              </div>
               <TissueCellActionPotential 
                 results={results}
                 selectedCell={selectedCell}

@@ -20,6 +20,13 @@ import {
 import ActionPotentialPlot from './ActionPotentialPlot';
 import { useSimulation, SimulationStatus, SimulationType } from '../../hooks/useSimulation';
 import SimulationProgress from '../common/SimulationProgress';
+// Import new educational components
+import EnhancedTooltip from '../Shared/EnhancedTooltip';
+import EducationalPanel from '../Shared/EducationalPanel';
+import SelfAssessmentQuiz from '../Shared/SelfAssessmentQuiz';
+// Import educational content
+import { cellParameterTooltips, actionPotentialEducation, cellModuleQuizQuestions, stimulusParameterTooltips } from '../../data/cellEducation';
+import { QuizQuestion } from '../../data/quizzes';
 
 const CellModule: React.FC = () => {
   const dispatch = useDispatch();
@@ -190,9 +197,17 @@ const CellModule: React.FC = () => {
             
             <div className="space-y-4">
               <div>
-                <label htmlFor="tau-in" className="block font-medium text-gray-700 mb-1">
-                  τᵢₙ (Depolarization): {params.tau_in.toFixed(2)}
-                </label>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">{cellParameterTooltips.tau_in.title}</div>
+                    <div className="mb-2">{cellParameterTooltips.tau_in.content}</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: {cellParameterTooltips.tau_in.physiological}</div>
+                  </div>
+                }>
+                  <label htmlFor="tau-in" className="block font-medium text-gray-700 mb-1">
+                    τᵢₙ (Depolarization): {params.tau_in.toFixed(2)}
+                  </label>
+                </EnhancedTooltip>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-500 mr-2">0.1</span>
                   <input
@@ -207,15 +222,20 @@ const CellModule: React.FC = () => {
                   />
                   <span className="text-sm text-gray-500 ml-2">1.0</span>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Controls the speed of depolarization (upstroke velocity). Lower values = faster depolarization.
-                </div>
               </div>
               
               <div>
-                <label htmlFor="tau-out" className="block font-medium text-gray-700 mb-1">
-                  τₒᵤₜ (Repolarization): {params.tau_out.toFixed(1)}
-                </label>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">{cellParameterTooltips.tau_out.title}</div>
+                    <div className="mb-2">{cellParameterTooltips.tau_out.content}</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: {cellParameterTooltips.tau_out.physiological}</div>
+                  </div>
+                }>
+                  <label htmlFor="tau-out" className="block font-medium text-gray-700 mb-1">
+                    τₒᵤₜ (Repolarization): {params.tau_out.toFixed(1)}
+                  </label>
+                </EnhancedTooltip>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-500 mr-2">1.0</span>
                   <input
@@ -230,15 +250,20 @@ const CellModule: React.FC = () => {
                   />
                   <span className="text-sm text-gray-500 ml-2">15.0</span>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Controls repolarization time. Higher values = longer action potential duration.
-                </div>
               </div>
               
               <div>
-                <label htmlFor="tau-open" className="block font-medium text-gray-700 mb-1">
-                  τₒₚₑₙ (Recovery): {params.tau_open.toFixed(0)}
-                </label>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">{cellParameterTooltips.tau_open.title}</div>
+                    <div className="mb-2">{cellParameterTooltips.tau_open.content}</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: {cellParameterTooltips.tau_open.physiological}</div>
+                  </div>
+                }>
+                  <label htmlFor="tau-open" className="block font-medium text-gray-700 mb-1">
+                    τₒₚₑₙ (Recovery): {params.tau_open.toFixed(0)}
+                  </label>
+                </EnhancedTooltip>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-500 mr-2">50</span>
                   <input
@@ -246,22 +271,27 @@ const CellModule: React.FC = () => {
                     type="range"
                     min="50"
                     max="200"
-                    step="10"
+                    step="5"
                     value={params.tau_open}
                     onChange={(e) => handleParamChange('tau_open', parseFloat(e.target.value))}
                     className="w-full"
                   />
                   <span className="text-sm text-gray-500 ml-2">200</span>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Controls the recovery time. Higher values = longer refractory period.
-                </div>
               </div>
               
               <div>
-                <label htmlFor="tau-close" className="block font-medium text-gray-700 mb-1">
-                  τcₗₒₛₑ (Inactivation): {params.tau_close.toFixed(0)}
-                </label>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">{cellParameterTooltips.tau_close.title}</div>
+                    <div className="mb-2">{cellParameterTooltips.tau_close.content}</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: {cellParameterTooltips.tau_close.physiological}</div>
+                  </div>
+                }>
+                  <label htmlFor="tau-close" className="block font-medium text-gray-700 mb-1">
+                    τ𝒸ₗₒₛₑ (Inactivation): {params.tau_close.toFixed(0)}
+                  </label>
+                </EnhancedTooltip>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-500 mr-2">50</span>
                   <input
@@ -269,22 +299,27 @@ const CellModule: React.FC = () => {
                     type="range"
                     min="50"
                     max="150"
-                    step="10"
+                    step="5"
                     value={params.tau_close}
                     onChange={(e) => handleParamChange('tau_close', parseFloat(e.target.value))}
                     className="w-full"
                   />
                   <span className="text-sm text-gray-500 ml-2">150</span>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Controls gate inactivation speed. Lower values = faster inactivation.
-                </div>
               </div>
               
               <div>
-                <label htmlFor="v-gate" className="block font-medium text-gray-700 mb-1">
-                  Vₗₐₜₑ (Threshold): {params.v_gate.toFixed(2)}
-                </label>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">{cellParameterTooltips.v_gate.title}</div>
+                    <div className="mb-2">{cellParameterTooltips.v_gate.content}</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: {cellParameterTooltips.v_gate.physiological}</div>
+                  </div>
+                }>
+                  <label htmlFor="v-gate" className="block font-medium text-gray-700 mb-1">
+                    V𝒈ₐₜₑ (Threshold): {params.v_gate.toFixed(2)}
+                  </label>
+                </EnhancedTooltip>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-500 mr-2">0.05</span>
                   <input
@@ -299,9 +334,6 @@ const CellModule: React.FC = () => {
                   />
                   <span className="text-sm text-gray-500 ml-2">0.3</span>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Threshold for gate switching. Higher values = higher threshold for activation.
-                </div>
               </div>
             </div>
           </div>
@@ -312,13 +344,21 @@ const CellModule: React.FC = () => {
             
             <div className="space-y-4">
               <div>
-                <label htmlFor="stimulus-amplitude" className="block font-medium text-gray-700 mb-1">
-                  Amplitude: {stimulusParams.amplitude.toFixed(1)}
-                </label>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">{stimulusParameterTooltips.amplitude.title}</div>
+                    <div className="mb-2">{stimulusParameterTooltips.amplitude.content}</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: {stimulusParameterTooltips.amplitude.physiological}</div>
+                  </div>
+                }>
+                  <label htmlFor="stim-amplitude" className="block font-medium text-gray-700 mb-1">
+                    Amplitude: {stimulusParams.amplitude.toFixed(1)}
+                  </label>
+                </EnhancedTooltip>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-500 mr-2">0.5</span>
                   <input
-                    id="stimulus-amplitude"
+                    id="stim-amplitude"
                     type="range"
                     min="0.5"
                     max="2.0"
@@ -332,62 +372,78 @@ const CellModule: React.FC = () => {
               </div>
               
               <div>
-                <label htmlFor="stimulus-duration" className="block font-medium text-gray-700 mb-1">
-                  Duration: {stimulusParams.duration.toFixed(1)}
-                </label>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">{stimulusParameterTooltips.duration.title}</div>
+                    <div className="mb-2">{stimulusParameterTooltips.duration.content}</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: {stimulusParameterTooltips.duration.physiological}</div>
+                  </div>
+                }>
+                  <label htmlFor="stim-duration" className="block font-medium text-gray-700 mb-1">
+                    Duration: {stimulusParams.duration.toFixed(1)}
+                  </label>
+                </EnhancedTooltip>
                 <div className="flex items-center">
-                  <span className="text-sm text-gray-500 mr-2">0.1</span>
+                  <span className="text-sm text-gray-500 mr-2">0.5</span>
                   <input
-                    id="stimulus-duration"
+                    id="stim-duration"
                     type="range"
-                    min="0.1"
-                    max="2.0"
+                    min="0.5"
+                    max="5.0"
                     step="0.1"
                     value={stimulusParams.duration}
                     onChange={(e) => handleStimulusParamChange('duration', parseFloat(e.target.value))}
                     className="w-full"
                   />
-                  <span className="text-sm text-gray-500 ml-2">2.0</span>
+                  <span className="text-sm text-gray-500 ml-2">5.0</span>
                 </div>
               </div>
               
               <div>
-                <label htmlFor="stimulus-start" className="block font-medium text-gray-700 mb-1">
-                  Start Time: {stimulusParams.startTime.toFixed(1)}
-                </label>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">{stimulusParameterTooltips.startTime.title}</div>
+                    <div className="mb-2">{stimulusParameterTooltips.startTime.content}</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: {stimulusParameterTooltips.startTime.physiological}</div>
+                  </div>
+                }>
+                  <label htmlFor="stim-start" className="block font-medium text-gray-700 mb-1">
+                    Start Time: {stimulusParams.startTime.toFixed(1)}
+                  </label>
+                </EnhancedTooltip>
                 <div className="flex items-center">
-                  <span className="text-sm text-gray-500 mr-2">1.0</span>
+                  <span className="text-sm text-gray-500 mr-2">0</span>
                   <input
-                    id="stimulus-start"
+                    id="stim-start"
                     type="range"
-                    min="1.0"
-                    max="10.0"
-                    step="0.5"
+                    min="0"
+                    max="50"
+                    step="1"
                     value={stimulusParams.startTime}
                     onChange={(e) => handleStimulusParamChange('startTime', parseFloat(e.target.value))}
                     className="w-full"
                   />
-                  <span className="text-sm text-gray-500 ml-2">10.0</span>
+                  <span className="text-sm text-gray-500 ml-2">50</span>
                 </div>
               </div>
               
               <div>
-                <label htmlFor="simulation-timespan" className="block font-medium text-gray-700 mb-1">
-                  Simulation Duration: {stimulusParams.timeSpan}
+                <label htmlFor="time-span" className="block font-medium text-gray-700 mb-1">
+                  Simulation Length: {stimulusParams.timeSpan.toFixed(0)}
                 </label>
                 <div className="flex items-center">
-                  <span className="text-sm text-gray-500 mr-2">20</span>
+                  <span className="text-sm text-gray-500 mr-2">100</span>
                   <input
-                    id="simulation-timespan"
+                    id="time-span"
                     type="range"
-                    min="20"
-                    max="100"
-                    step="5"
+                    min="100"
+                    max="1000"
+                    step="50"
                     value={stimulusParams.timeSpan}
-                    onChange={(e) => handleStimulusParamChange('timeSpan', parseInt(e.target.value))}
+                    onChange={(e) => handleStimulusParamChange('timeSpan', parseFloat(e.target.value))}
                     className="w-full"
                   />
-                  <span className="text-sm text-gray-500 ml-2">100</span>
+                  <span className="text-sm text-gray-500 ml-2">1000</span>
                 </div>
               </div>
             </div>
@@ -528,6 +584,24 @@ const CellModule: React.FC = () => {
               />
             </div>
           )}
+          
+          {/* Add educational content after the simulation results */}
+          <div className="mt-8">
+            <EducationalPanel
+              title="Cardiac Action Potential"
+              basicContent={<div dangerouslySetInnerHTML={{ __html: actionPotentialEducation.basic.content }} />}
+              intermediateContent={<div dangerouslySetInnerHTML={{ __html: actionPotentialEducation.intermediate.content }} />}
+              advancedContent={<div dangerouslySetInnerHTML={{ __html: actionPotentialEducation.advanced.content }} />}
+              clinicalRelevance={<div dangerouslySetInnerHTML={{ __html: actionPotentialEducation.clinical.content }} />}
+              className="mb-6"
+            />
+            
+            <SelfAssessmentQuiz
+              title="Test Your Knowledge: Action Potentials"
+              questions={cellModuleQuizQuestions}
+              className="mt-6"
+            />
+          </div>
         </div>
       </div>
     </div>

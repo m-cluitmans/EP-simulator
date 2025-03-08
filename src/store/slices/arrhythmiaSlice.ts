@@ -19,9 +19,7 @@ interface S1S2Protocol {
 // Different types of arrhythmia mechanisms to demonstrate
 export enum ArrhythmiaType {
   NORMAL = 'normal',
-  CONDUCTION_BLOCK = 'conductionBlock',
   REENTRY = 'reentry',
-  ECTOPIC_FOCUS = 'ectopicFocus',
   FIBROSIS = 'fibrosis',
 }
 
@@ -49,11 +47,11 @@ interface ArrhythmiaState {
 const initialS1S2Protocol: S1S2Protocol = {
   s1Amplitude: 1.0,
   s1Duration: 2.0,
-  s1Location: { row: 0, col: 0, width: 5, height: 100 },
+  s1Location: { row: 10, col: 10, width: 5, height: 100 },
   s2Amplitude: 1.0,
   s2Duration: 2.0,
-  s2Location: { row: 40, col: 60, width: 20, height: 20 },
-  couplingInterval: 30.0,
+  s2Location: { row: 30, col: 60, width: 20, height: 40 },
+  couplingInterval: 345.0, // Default value for typical arrhythmia studies
 };
 
 const initialState: ArrhythmiaState = {
@@ -87,41 +85,35 @@ export const arrhythmiaSlice = createSlice({
       // Configure appropriate parameters for the selected arrhythmia type
       switch (action.payload) {
         case ArrhythmiaType.NORMAL:
-          // Reset to default settings
-          state.s1s2Protocol = { ...initialS1S2Protocol };
+          // Reset to default settings but with S2 amplitude set to 0
+          state.s1s2Protocol = { 
+            ...initialS1S2Protocol,
+            s2Amplitude: 0.0  // Set S2 amplitude to 0 to disable the second stimulus
+          };
           state.fibrosisPattern = FibrosisPattern.NONE;
           state.fibrosisDensity = 0.0;
-          break;
-          
-        case ArrhythmiaType.CONDUCTION_BLOCK:
-          // Create settings for demonstrating conduction block
-          state.s1s2Protocol = {
-            ...initialS1S2Protocol,
-            couplingInterval: 15.0 // Shorter coupling interval
-          };
           break;
           
         case ArrhythmiaType.REENTRY:
           // Create settings for demonstrating reentry
           state.s1s2Protocol = {
             ...initialS1S2Protocol,
-            s2Location: { row: 45, col: 50, width: 10, height: 10 },
-            couplingInterval: 25.0
+            s1Location: { row: 10, col: 10, width: 5, height: 100 },
+            s2Location: { row: 30, col: 60, width: 20, height: 40 },
+            couplingInterval: 345.0
           };
-          break;
-          
-        case ArrhythmiaType.ECTOPIC_FOCUS:
-          // Create settings for demonstrating ectopic focus
-          state.s1s2Protocol = {
-            ...initialS1S2Protocol,
-            s2Location: { row: 75, col: 75, width: 5, height: 5 },
-            s2Amplitude: 1.5,
-            couplingInterval: 50.0
-          };
+          state.fibrosisPattern = FibrosisPattern.NONE;
+          state.fibrosisDensity = 0.0;
           break;
           
         case ArrhythmiaType.FIBROSIS:
           // Create settings for demonstrating fibrosis effects
+          state.s1s2Protocol = {
+            ...initialS1S2Protocol,
+            s1Location: { row: 10, col: 10, width: 5, height: 100 },
+            s2Location: { row: 30, col: 60, width: 20, height: 40 },
+            couplingInterval: 345.0
+          };
           state.fibrosisPattern = FibrosisPattern.PATCHY;
           state.fibrosisDensity = 0.2;
           break;
@@ -138,6 +130,10 @@ export const arrhythmiaSlice = createSlice({
     },
     
     setArrhythmiaResults: (state, action: PayloadAction<TissueSimulationResults>) => {
+      console.log("arrhythmiaSlice: Setting results", { 
+        hasResults: !!action.payload,
+        snapshotsCount: action.payload?.snapshots?.length || 0
+      });
       state.results = action.payload;
       state.currentTimeIndex = 0;
     },

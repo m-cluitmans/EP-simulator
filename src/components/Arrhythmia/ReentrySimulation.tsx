@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { ArrhythmiaScenario } from './ArrhythmiaModule';
+import { ArrhythmiaScenario } from './ArrhythmiaTypes';
 import { TissueData } from '../../models/TissueModel';
 import { createVoltageColorScale } from '../../utils/colorScales';
 

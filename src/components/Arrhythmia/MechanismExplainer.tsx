@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrhythmiaScenario, EducationalSection } from './ArrhythmiaModule';
+import { ArrhythmiaScenario, EducationalSection } from './ArrhythmiaTypes';
 
 interface MechanismExplainerProps {
   scenario: ArrhythmiaScenario;

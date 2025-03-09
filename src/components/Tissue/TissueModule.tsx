@@ -55,8 +55,9 @@ const TissueModule: React.FC = () => {
   
   // Animation state
   const [isAnimating, setIsAnimating] = useState(false);
-  const [animationSpeed, setAnimationSpeed] = useState(1); // frames per second
+  const [animationSpeed, setAnimationSpeed] = useState(5); // frames per second - increased default
   const animationRef = useRef<number | null>(null);
+  const currentIndexRef = useRef(0); // Track current index directly in ref
   
   // Reference to colorScale functions
   const colorScales = useRef({
@@ -336,24 +337,32 @@ const TissueModule: React.FC = () => {
   
   // Animation controls
   const startAnimation = () => {
+    // Check if we have results to animate
     if (!results || !results.snapshots.length) return;
+    
+    // Stop any existing animation
+    stopAnimation();
+    
+    // Initialize animation state
     setIsAnimating(true);
+    currentIndexRef.current = currentTimeIndex; // Sync with current displayed index
     
-    // Function to increment the frame
-    const animate = () => {
-      // Calculate the next index directly
-      const nextIndex = (currentTimeIndex + 1) % results.snapshots.length;
-      dispatch(setCurrentTimeIndex(nextIndex));
+    // Start interval-based animation
+    const intervalId = window.setInterval(() => {
+      // Calculate next frame
+      currentIndexRef.current = (currentIndexRef.current + 1) % results.snapshots.length;
       
-      animationRef.current = requestAnimationFrame(animate);
-    };
+      // Update the UI by dispatching to Redux
+      dispatch(setCurrentTimeIndex(currentIndexRef.current));
+    }, 1000 / animationSpeed);
     
-    animationRef.current = requestAnimationFrame(animate);
+    // Store interval ID for cleanup
+    animationRef.current = intervalId as unknown as number;
   };
   
   const stopAnimation = () => {
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
+    if (animationRef.current !== null) {
+      window.clearInterval(animationRef.current as unknown as number);
       animationRef.current = null;
     }
     setIsAnimating(false);
@@ -372,11 +381,29 @@ const TissueModule: React.FC = () => {
   // Clean up animation on unmount
   useEffect(() => {
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
+      if (animationRef.current !== null) {
+        window.clearInterval(animationRef.current as unknown as number);
+        animationRef.current = null;
       }
     };
   }, []);
+  
+  // Stop animation when manually changing time index
+  useEffect(() => {
+    // Update our ref to match current index when it changes externally (e.g. slider)
+    currentIndexRef.current = currentTimeIndex;
+  }, [currentTimeIndex]);
+  
+  // Handle animation speed change  
+  const handleAnimationSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSpeed = parseInt(e.target.value);
+    setAnimationSpeed(newSpeed);
+    
+    // Restart animation with new speed if currently running
+    if (isAnimating) {
+      startAnimation();
+    }
+  };
   
   // Toggle features
   const handleToggleDiffusionGradient = () => {
@@ -871,6 +898,24 @@ const TissueModule: React.FC = () => {
                 >
                   Stop
                 </button>
+              </div>
+              
+              {/* Animation speed control */}
+              <div className="mt-2">
+                <label htmlFor="animation-speed" className="block text-sm text-gray-700 mb-1">
+                  Animation Speed: {animationSpeed} fps
+                </label>
+                <input
+                  id="animation-speed"
+                  type="range"
+                  min="1"
+                  max="30"
+                  step="1"
+                  value={animationSpeed}
+                  onChange={handleAnimationSpeedChange}
+                  className="w-full"
+                  disabled={status === SimulationStatus.RUNNING}
+                />
               </div>
               
               <button

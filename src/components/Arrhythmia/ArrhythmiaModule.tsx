@@ -617,7 +617,41 @@ const ArrhythmiaModule: React.FC = () => {
         {/* Visualization and Educational Content */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
-            <h3 className="text-lg font-semibold mb-4">Arrhythmia Visualization</h3>
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center">
+                <h3 className="text-lg font-semibold">Arrhythmia Visualization</h3>
+                {/* Show spinner when simulation is in progress */}
+                {simulationInProgress && (
+                  <div className="spinner ml-2" title="Simulation in progress"></div>
+                )}
+              </div>
+              
+              {/* Play/Pause Button */}
+              {results && (
+                <button
+                  onClick={toggleAnimation}
+                  className={`px-3 py-1 rounded text-sm flex items-center ${
+                    isAnimating ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
+                  }`}
+                >
+                  {isAnimating ? (
+                    <>
+                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      Pause
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                      </svg>
+                      Play
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
             
             <div className="relative">
               {results && (
@@ -635,24 +669,6 @@ const ArrhythmiaModule: React.FC = () => {
                 <div className="flex items-center justify-center h-96 bg-gray-100 rounded">
                   <p className="text-gray-500">Run a simulation to see arrhythmia patterns</p>
                 </div>
-              )}
-              
-              {isAnimating && (
-                <button
-                  className="absolute top-2 right-2 bg-white bg-opacity-80 text-gray-800 px-2 py-1 rounded shadow-sm text-xs"
-                  onClick={toggleAnimation}
-                >
-                  Pause
-                </button>
-              )}
-              
-              {!isAnimating && results && (
-                <button
-                  className="absolute top-2 right-2 bg-white bg-opacity-80 text-gray-800 px-2 py-1 rounded shadow-sm text-xs"
-                  onClick={toggleAnimation}
-                >
-                  Play
-                </button>
               )}
             </div>
             

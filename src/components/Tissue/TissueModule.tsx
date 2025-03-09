@@ -492,6 +492,49 @@ const TissueModule: React.FC = () => {
                   <span className="text-sm text-gray-500 ml-2">5.0</span>
                 </div>
               </div>
+              
+              {/* Tissue Size Controls */}
+              <div>
+                <label htmlFor="tissue-rows" className="block font-medium text-gray-700 mb-1">
+                  Rows: {tissueSize.rows}
+                </label>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">10</span>
+                  <input
+                    id="tissue-rows"
+                    type="range"
+                    min="10"
+                    max="100"
+                    step="1"
+                    value={tissueSize.rows}
+                    onChange={(e) => setTissueSize(prev => ({...prev, rows: parseInt(e.target.value)}))}
+                    className="w-full"
+                    disabled={status === SimulationStatus.RUNNING}
+                  />
+                  <span className="text-sm text-gray-500 ml-2">100</span>
+                </div>
+              </div>
+              
+              <div>
+                <label htmlFor="tissue-cols" className="block font-medium text-gray-700 mb-1">
+                  Columns: {tissueSize.cols}
+                </label>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">10</span>
+                  <input
+                    id="tissue-cols"
+                    type="range"
+                    min="10"
+                    max="100"
+                    step="1"
+                    value={tissueSize.cols}
+                    onChange={(e) => setTissueSize(prev => ({...prev, cols: parseInt(e.target.value)}))}
+                    className="w-full"
+                    disabled={status === SimulationStatus.RUNNING}
+                  />
+                  <span className="text-sm text-gray-500 ml-2">100</span>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -936,40 +979,69 @@ const TissueModule: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Tissue Visualization</h3>
               
-              {/* Visualization Mode Selector */}
-              <div className="flex space-x-2">
-                <button
-                  className={`px-3 py-1 rounded text-sm ${
-                    visualizationMode === VisualizationMode.VOLTAGE 
-                      ? 'bg-primary text-white' 
-                      : 'bg-gray-200 hover:bg-gray-300'
-                  }`}
-                  onClick={() => handleVisualizationModeChange(VisualizationMode.VOLTAGE)}
-                >
-                  Voltage
-                </button>
-                <button
-                  className={`px-3 py-1 rounded text-sm ${
-                    visualizationMode === VisualizationMode.ACTIVATION_TIMES 
-                      ? 'bg-primary text-white' 
-                      : 'bg-gray-200 hover:bg-gray-300'
-                  }`}
-                  onClick={() => handleVisualizationModeChange(VisualizationMode.ACTIVATION_TIMES)}
-                  disabled={!results}
-                >
-                  Activation Times
-                </button>
-                <button
-                  className={`px-3 py-1 rounded text-sm ${
-                    visualizationMode === VisualizationMode.ACTION_POTENTIAL_DURATION 
-                      ? 'bg-primary text-white' 
-                      : 'bg-gray-200 hover:bg-gray-300'
-                  }`}
-                  onClick={() => handleVisualizationModeChange(VisualizationMode.ACTION_POTENTIAL_DURATION)}
-                  disabled={!results}
-                >
-                  APD
-                </button>
+              <div className="flex items-center space-x-2">
+                {/* Play/Pause Button */}
+                {results && (
+                  <button
+                    onClick={isAnimating ? stopAnimation : startAnimation}
+                    className={`px-3 py-1 rounded text-sm flex items-center ${
+                      isAnimating ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
+                    }`}
+                    disabled={!results || status === SimulationStatus.RUNNING}
+                  >
+                    {isAnimating ? (
+                      <>
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        Pause
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                        </svg>
+                        Play
+                      </>
+                    )}
+                  </button>
+                )}
+                
+                {/* Visualization Mode Selector */}
+                <div className="flex space-x-2">
+                  <button
+                    className={`px-3 py-1 rounded text-sm ${
+                      visualizationMode === VisualizationMode.VOLTAGE 
+                        ? 'bg-primary text-white' 
+                        : 'bg-gray-200 hover:bg-gray-300'
+                    }`}
+                    onClick={() => handleVisualizationModeChange(VisualizationMode.VOLTAGE)}
+                  >
+                    Voltage
+                  </button>
+                  <button
+                    className={`px-3 py-1 rounded text-sm ${
+                      visualizationMode === VisualizationMode.ACTIVATION_TIMES 
+                        ? 'bg-primary text-white' 
+                        : 'bg-gray-200 hover:bg-gray-300'
+                    }`}
+                    onClick={() => handleVisualizationModeChange(VisualizationMode.ACTIVATION_TIMES)}
+                    disabled={!results}
+                  >
+                    Activation Times
+                  </button>
+                  <button
+                    className={`px-3 py-1 rounded text-sm ${
+                      visualizationMode === VisualizationMode.ACTION_POTENTIAL_DURATION 
+                        ? 'bg-primary text-white' 
+                        : 'bg-gray-200 hover:bg-gray-300'
+                    }`}
+                    onClick={() => handleVisualizationModeChange(VisualizationMode.ACTION_POTENTIAL_DURATION)}
+                    disabled={!results}
+                  >
+                    APD
+                  </button>
+                </div>
               </div>
             </div>
             

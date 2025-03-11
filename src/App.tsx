@@ -142,12 +142,17 @@ function App() {
         {/* Header */}
         <header className="bg-primary text-white p-4 shadow-md">
           <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
-            <h1 
-              className="text-2xl font-bold cursor-pointer"
-              onClick={() => setActiveTab(AppTab.HOME)}
-            >
-              Cardiac Electrophysiology Platform
-            </h1>
+            <div className="flex flex-col">
+              <h1 
+                className="text-2xl font-bold cursor-pointer"
+                onClick={() => setActiveTab(AppTab.HOME)}
+              >
+                Cardiac Electrophysiology Platform
+              </h1>
+              <div className="bg-yellow-600 text-white px-3 py-1 mt-2 rounded text-sm font-medium">
+                Warning: This app is fully AI-generated, not human verified, and may contain mistakes
+              </div>
+            </div>
             
             {/* Navigation */}
             <nav className="flex space-x-4 mt-4 md:mt-0">
@@ -190,6 +195,9 @@ function App() {
             <p>Cardiac Electrophysiology Learning Platform &copy; {new Date().getFullYear()}</p>
             <p className="text-sm mt-1">
               Created for educational purposes in biomedical engineering and medical sciences.
+            </p>
+            <p className="text-sm font-semibold mt-2 text-yellow-600">
+              Warning: This app is fully AI-generated, not human verified, and may contain mistakes
             </p>
           </div>
         </footer>

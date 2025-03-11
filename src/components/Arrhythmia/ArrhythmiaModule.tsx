@@ -31,6 +31,7 @@ import {
   fibrosisEducation, 
   arrhythmiaModuleQuizQuestions 
 } from '../../data/arrhythmiaEducation';
+import { MsParams, MS_CELL_PRESETS } from '../../models/MitchellSchaefferModel';
 
 // Add this CSS at the top of the file, after imports
 const spinnerStyle = `
@@ -144,8 +145,43 @@ const ArrhythmiaModule: React.FC = () => {
     setFibrosisSeed(Math.floor(Math.random() * 1000000));
   };
   
+  // State for MS model parameters
+  const [msModelParams, setMsModelParams] = useState<MsParams>({
+    tau_in: tissueParams.tau_in,
+    tau_out: tissueParams.tau_out,
+    tau_open: tissueParams.tau_open,
+    tau_close: tissueParams.tau_close,
+    v_gate: tissueParams.v_gate,
+    dt: tissueParams.dt
+  });
+  
+  // State for selected preset
+  const [selectedPreset, setSelectedPreset] = useState<string>("Normal Cell");
+  
   // Setup the simulation hook
   const { status: simulationStatus, progress, runSimulation, estimatedTimeRemaining } = useArrhythmiaSimulation();
+  
+  // Initial setup to ensure correct settings are applied for the selected arrhythmia type
+  useEffect(() => {
+    // Make sure settings are correctly applied for the initially selected arrhythmia type
+    if (selectedArrhythmiaType === ArrhythmiaType.NORMAL) {
+      // For normal propagation, S2 amplitude should be 0
+      dispatch(updateS1S2Protocol({ s2Amplitude: 0.0 }));
+    }
+  }, [dispatch, selectedArrhythmiaType]);
+  
+  // Add an effect to sync msModelParams with Redux params
+  useEffect(() => {
+    // Keep local MS model parameters in sync with Redux tissue params
+    setMsModelParams({
+      tau_in: tissueParams.tau_in,
+      tau_out: tissueParams.tau_out,
+      tau_open: tissueParams.tau_open,
+      tau_close: tissueParams.tau_close,
+      v_gate: tissueParams.v_gate,
+      dt: tissueParams.dt
+    });
+  }, [tissueParams]);
   
   // Initial setup of S1-S2 protocol based on arrhythmia type
   useEffect(() => {
@@ -195,14 +231,27 @@ const ArrhythmiaModule: React.FC = () => {
     dispatch(identifyReentry(false));
     dispatch(identifyBlock(false));
     
+    // For normal propagation mode, ensure S2 amplitude is 0
+    if (selectedArrhythmiaType === ArrhythmiaType.NORMAL) {
+      dispatch(updateS1S2Protocol({ s2Amplitude: 0.0 }));
+    }
+    
     // Prepare simulation parameters
     const simulationParams = {
       ...tissueParams,
+      // Explicitly include MS model parameters to ensure they're used in the simulation
+      tau_in: msModelParams.tau_in,
+      tau_out: msModelParams.tau_out,
+      tau_open: msModelParams.tau_open,
+      tau_close: msModelParams.tau_close,
+      v_gate: msModelParams.v_gate,
+      dt: msModelParams.dt,
+      // S1-S2 protocol parameters
       s1Amplitude: s1s2Protocol.s1Amplitude,
       s1Duration: s1s2Protocol.s1Duration,
       s1StartTime: 1.0,
       s1Location: s1s2Protocol.s1Location,
-      s2Amplitude: s1s2Protocol.s2Amplitude,
+      s2Amplitude: selectedArrhythmiaType === ArrhythmiaType.NORMAL ? 0.0 : s1s2Protocol.s2Amplitude,
       s2Duration: s1s2Protocol.s2Duration,
       s2StartTime: 1.0 + s1s2Protocol.couplingInterval,
       s2Location: s1s2Protocol.s2Location,
@@ -244,6 +293,25 @@ const ArrhythmiaModule: React.FC = () => {
   // Handle arrhythmia type selection
   const handleArrhythmiaTypeChange = (type: ArrhythmiaType) => {
     dispatch(setArrhythmiaType(type));
+    
+    // Explicitly set specific parameters for different arrhythmia types
+    if (type === ArrhythmiaType.NORMAL) {
+      // For normal propagation, ensure S2 amplitude is 0
+      dispatch(updateS1S2Protocol({ s2Amplitude: 0.0 }));
+    } else if (type === ArrhythmiaType.REENTRY) {
+      // For reentry, setup proper S1-S2 protocol
+      dispatch(updateS1S2Protocol({
+        s1Amplitude: 1.0,
+        s1Duration: 2.0,
+        s2Amplitude: 1.0,
+        s2Duration: 2.0,
+        couplingInterval: 345.0
+      }));
+    } else if (type === ArrhythmiaType.FIBROSIS) {
+      // For fibrosis, ensure fibrosis pattern and density are set
+      dispatch(setFibrosisPattern(FibrosisPattern.PATCHY));
+      dispatch(setFibrosisDensity(0.2));
+    }
   };
   
   // Handle fibrosis pattern selection
@@ -344,6 +412,33 @@ const ArrhythmiaModule: React.FC = () => {
   // Handle cell click for action potential graph
   const handleCellClick = (row: number, col: number) => {
     setSelectedCell({ row, col });
+  };
+  
+  // Handle preset selection
+  const handlePresetChange = (presetName: string) => {
+    setSelectedPreset(presetName);
+    const presetParams = MS_CELL_PRESETS[presetName];
+    
+    if (presetParams) {
+      // Create new params object by merging current params with preset params
+      const newParams = { ...msModelParams, ...presetParams };
+      setMsModelParams(newParams);
+      
+      // Update the tissue params in the Redux store
+      dispatch(updateTissueParams(newParams));
+    }
+  };
+  
+  // Handle MS model parameter changes
+  const handleMsParamChange = (param: keyof MsParams, value: number) => {
+    setMsModelParams(prev => {
+      const newParams = { ...prev, [param]: value };
+      
+      // Update the tissue params in the Redux store with the new MS model params
+      dispatch(updateTissueParams(newParams));
+      
+      return newParams;
+    });
   };
   
   return (
@@ -447,6 +542,174 @@ const ArrhythmiaModule: React.FC = () => {
               <p className="text-xs text-gray-500">
                 Using the same seed will produce identical fibrosis patterns, allowing for direct comparisons.
               </p>
+            </div>
+          </div>
+          
+          {/* Mitchell Schaeffer Model Parameters Section */}
+          <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
+            <h3 className="text-lg font-semibold mb-4">Mitchell Schaeffer Model Parameters</h3>
+            
+            <div className="mb-4">
+              <label htmlFor="preset-select" className="block font-medium text-gray-700 mb-1">
+                Parameter Presets:
+              </label>
+              <select
+                id="preset-select"
+                value={selectedPreset}
+                onChange={(e) => handlePresetChange(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-md shadow-sm"
+              >
+                {Object.keys(MS_CELL_PRESETS).map(presetName => (
+                  <option key={presetName} value={presetName}>
+                    {presetName}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-sm text-gray-500">
+                Select a preset or adjust parameters manually below.
+              </p>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">{arrhythmiaParameterTooltips.tau_in.title}</div>
+                    <div className="mb-2">{arrhythmiaParameterTooltips.tau_in.content}</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: {arrhythmiaParameterTooltips.tau_in.physiological}</div>
+                  </div>
+                }>
+                  <label htmlFor="tau-in" className="block font-medium text-gray-700 mb-1">
+                    τᵢₙ (Depolarization): {msModelParams.tau_in.toFixed(2)}
+                  </label>
+                </EnhancedTooltip>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">0.1</span>
+                  <input
+                    id="tau-in"
+                    type="range"
+                    min="0.1"
+                    max="1.0"
+                    step="0.1"
+                    value={msModelParams.tau_in}
+                    onChange={(e) => handleMsParamChange('tau_in', parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                  <span className="text-sm text-gray-500 ml-2">1.0</span>
+                </div>
+              </div>
+              
+              <div>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">{arrhythmiaParameterTooltips.tau_out.title}</div>
+                    <div className="mb-2">{arrhythmiaParameterTooltips.tau_out.content}</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: {arrhythmiaParameterTooltips.tau_out.physiological}</div>
+                  </div>
+                }>
+                  <label htmlFor="tau-out" className="block font-medium text-gray-700 mb-1">
+                    τₒᵤₜ (Repolarization): {msModelParams.tau_out.toFixed(1)}
+                  </label>
+                </EnhancedTooltip>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">1.0</span>
+                  <input
+                    id="tau-out"
+                    type="range"
+                    min="1.0"
+                    max="15.0"
+                    step="0.5"
+                    value={msModelParams.tau_out}
+                    onChange={(e) => handleMsParamChange('tau_out', parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                  <span className="text-sm text-gray-500 ml-2">15.0</span>
+                </div>
+              </div>
+              
+              <div>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">{arrhythmiaParameterTooltips.tau_open.title}</div>
+                    <div className="mb-2">{arrhythmiaParameterTooltips.tau_open.content}</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: {arrhythmiaParameterTooltips.tau_open.physiological}</div>
+                  </div>
+                }>
+                  <label htmlFor="tau-open" className="block font-medium text-gray-700 mb-1">
+                    τₒₚₑₙ (Recovery): {msModelParams.tau_open.toFixed(0)}
+                  </label>
+                </EnhancedTooltip>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">80</span>
+                  <input
+                    id="tau-open"
+                    type="range"
+                    min="80"
+                    max="200"
+                    step="5"
+                    value={msModelParams.tau_open}
+                    onChange={(e) => handleMsParamChange('tau_open', parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                  <span className="text-sm text-gray-500 ml-2">200</span>
+                </div>
+              </div>
+              
+              <div>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">{arrhythmiaParameterTooltips.tau_close.title}</div>
+                    <div className="mb-2">{arrhythmiaParameterTooltips.tau_close.content}</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: {arrhythmiaParameterTooltips.tau_close.physiological}</div>
+                  </div>
+                }>
+                  <label htmlFor="tau-close" className="block font-medium text-gray-700 mb-1">
+                    τ𝒸ₗₒₛₑ (Inactivation): {msModelParams.tau_close.toFixed(0)}
+                  </label>
+                </EnhancedTooltip>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">50</span>
+                  <input
+                    id="tau-close"
+                    type="range"
+                    min="50"
+                    max="150"
+                    step="5"
+                    value={msModelParams.tau_close}
+                    onChange={(e) => handleMsParamChange('tau_close', parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                  <span className="text-sm text-gray-500 ml-2">150</span>
+                </div>
+              </div>
+              
+              <div>
+                <EnhancedTooltip content={
+                  <div>
+                    <div className="font-bold mb-1">{arrhythmiaParameterTooltips.v_gate.title}</div>
+                    <div className="mb-2">{arrhythmiaParameterTooltips.v_gate.content}</div>
+                    <div className="text-xs text-gray-500">Physiological meaning: {arrhythmiaParameterTooltips.v_gate.physiological}</div>
+                  </div>
+                }>
+                  <label htmlFor="v-gate" className="block font-medium text-gray-700 mb-1">
+                    V𝒈ₐₜₑ (Threshold): {msModelParams.v_gate.toFixed(2)}
+                  </label>
+                </EnhancedTooltip>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">0.05</span>
+                  <input
+                    id="v-gate"
+                    type="range"
+                    min="0.05"
+                    max="0.3"
+                    step="0.01"
+                    value={msModelParams.v_gate}
+                    onChange={(e) => handleMsParamChange('v_gate', parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                  <span className="text-sm text-gray-500 ml-2">0.3</span>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -682,7 +945,7 @@ const ArrhythmiaModule: React.FC = () => {
                   value={currentTimeIndex}
                   onChange={(e) => dispatch(setCurrentArrhythmiaTimeIndex(parseInt(e.target.value)))}
                 />
-                <div className="flex justify-between text-xs text-gray-500">
+                <div className="flex justify-between text-xs text-gray-600 mt-1">
                   <span>0 ms</span>
                   <span>{results.snapshots[results.snapshots.length - 1].time.toFixed(0)} ms</span>
                 </div>

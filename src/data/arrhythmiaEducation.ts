@@ -25,6 +25,32 @@ export const arrhythmiaParameterTooltips = {
     title: 'Excitability Gradient',
     content: `Spatial variation in excitability across tissue. Creates heterogeneity in conduction properties.`,
     physiological: 'Corresponds to regional differences in ion channel expression or pathological changes'
+  },
+  // MS model parameter tooltips for arrhythmia module
+  tau_in: {
+    title: 'τ_in (Tau In)',
+    content: `Controls the speed of depolarization (upstroke velocity). In arrhythmias, reduced upstroke velocity can lead to conduction slowing, a key factor in reentry.`,
+    physiological: 'Represents sodium channel activity, which can be altered by mutations, drug effects, or ischemia'
+  },
+  tau_out: {
+    title: 'τ_out (Tau Out)',
+    content: `Controls repolarization rate and action potential duration (APD). In arrhythmias, heterogeneity in APD can create dispersion of refractoriness.`,
+    physiological: 'Represents potassium channel function, often affected in long QT syndrome or heart failure'
+  },
+  tau_open: {
+    title: 'τ_open (Tau Open)',
+    content: `Controls recovery time after excitation. In arrhythmias, slower recovery times increase refractoriness and affect vulnerability to reentry.`,
+    physiological: 'Corresponds to sodium channel recovery from inactivation, affected by sodium channel-blocking drugs'
+  },
+  tau_close: {
+    title: 'τ_close (Tau Close)',
+    content: `Controls gate closing during excitation. In arrhythmias, altering this parameter affects the action potential shape and excitability window.`,
+    physiological: 'Related to sodium channel inactivation kinetics, which can be affected by genetic mutations in Brugada syndrome'
+  },
+  v_gate: {
+    title: 'V_gate',
+    content: `Threshold voltage for gate dynamics. Higher values reduce tissue excitability, which can create regions of functional block in arrhythmias.`,
+    physiological: 'Corresponds to action potential threshold, which can be elevated in ischemic tissue or by certain antiarrhythmic drugs'
   }
 };
 

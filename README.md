@@ -4,6 +4,8 @@ An interactive web application for teaching cardiac electrophysiology concepts t
 
 *Warning: This project is FULLY developed by AI, and its code is not human-verified. Use at your own risk.*
 
+You can see an example of the platform [here](https://epsimulator.grantorai.com/).
+
 ## Project Overview
 
 This browser-based interactive application serves as an educational tool for understanding cardiac electrophysiology. It provides visual, interactive simulations of action potential generation and propagation, effects of ion channel properties, tissue-level activation patterns, and arrhythmia mechanisms.

@@ -2,6 +2,8 @@
 
 An interactive web application for teaching cardiac electrophysiology concepts to students in biomedical engineering and medical sciences.
 
+*Warning: This project is FULLY developed by AI, and its code is not human-verified. Use at your own risk.*
+
 ## Project Overview
 
 This browser-based interactive application serves as an educational tool for understanding cardiac electrophysiology. It provides visual, interactive simulations of action potential generation and propagation, effects of ion channel properties, tissue-level activation patterns, and arrhythmia mechanisms.
@@ -27,7 +29,6 @@ This browser-based interactive application serves as an educational tool for und
 ### Arrhythmia Mechanism Explorer
 - S1-S2 pacing protocol with adjustable timing
 - Introduction of repolarization gradients, conduction obstacles, and fibrosis patterns
-- Visual identification of conduction block and reentry circuits
 
 ## Technical Approach
 
@@ -39,7 +40,7 @@ This browser-based interactive application serves as an educational tool for und
 - **Simulation Engine**: JavaScript with Web Workers for performance
 
 ### Models
-1. **Simplified Cellular Models**: FitzHugh-Nagumo model (2-variable system)
+1. **Simplified Cellular Models**: Mitchell Schaeffer model (4-variable system)
 2. **Tissue Model**: 2D reaction-diffusion system on a grid
 
 ## Getting Started
@@ -52,7 +53,7 @@ This browser-based interactive application serves as an educational tool for und
 
 1. Clone the repository:
 ```
-git clone https://github.com/yourusername/cardiac-ep-platform.git
+git clone https://github.com/m-cluitmans/EP-simulator.git
 cd cardiac-ep-platform
 ```
 
@@ -103,11 +104,3 @@ npm run build
 
 This creates a `build` directory with optimized production files.
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- FitzHugh-Nagumo model for providing a simplified representation of cardiac action potentials
-- OpenCARP project for inspiration on cardiac electrophysiology simulation

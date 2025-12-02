@@ -118,14 +118,19 @@ function App() {
               
               <h3 className="text-xl font-semibold mb-3">Educational Context</h3>
               <p className="mb-4">
-                This application serves as an alternative to more complex computational tools like 
-                OpenCARP, focusing on educational clarity rather than complete biophysical accuracy.
+                This application serves as an alternative to more complex computational tools, 
+                focusing on educational clarity rather than complete biophysical accuracy.
               </p>
               
               <h3 className="text-xl font-semibold mb-3">Technical Details</h3>
-              <p>
+              <p className="mb-4">
                 Built with React, TypeScript, and D3.js. Simulations run client-side in the browser 
                 using Web Workers when available for optimal performance.
+              </p>
+
+              <h3 className="text-xl font-semibold mb-3">Source</h3>
+              <p className="mb-4">
+                The source code for this application is available on GitHub at <a href="https://github.com/m-cluitmans/EP-simulator">https://github.com/m-cluitmans/EP-simulator</a>.
               </p>
             </div>
           </div>

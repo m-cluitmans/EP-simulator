@@ -150,7 +150,7 @@ function App() {
                 Cardiac Electrophysiology Platform
               </h1>
               <div className="bg-yellow-600 text-white px-3 py-1 mt-2 rounded text-sm font-medium">
-                Warning: This app is fully AI-generated, not human verified, and may contain mistakes
+                Warning: This app is fully AI-generated, not human-verified, and may contain mistakes
               </div>
             </div>
             
@@ -197,7 +197,7 @@ function App() {
               Created for educational purposes in biomedical engineering and medical sciences.
             </p>
             <p className="text-sm font-semibold mt-2 text-yellow-600">
-              Warning: This app is fully AI-generated, not human verified, and may contain mistakes
+              Warning: This app is fully AI-generated, not human-verified, and may contain mistakes
             </p>
           </div>
         </footer>

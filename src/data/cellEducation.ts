@@ -84,7 +84,7 @@ export const actionPotentialEducation = {
       <p>Understanding action potential dynamics has direct clinical applications:</p>
       <ul>
         <li><strong>Antiarrhythmic drugs:</strong> Modify specific ion channels to alter AP properties</li>
-        <li><strong>Class I drugs:</strong> Block Na+ channels (decrease τ<sub>in</sub>)</li>
+        <li><strong>Class I drugs:</strong> Block Na+ channels (increase τ<sub>in</sub>, slowing depolarization)</li>
         <li><strong>Class III drugs:</strong> Block K+ channels (increase τ<sub>out</sub>)</li>
         <li><strong>Channelopathies:</strong> Genetic disorders affecting ion channels</li>
         <ul>

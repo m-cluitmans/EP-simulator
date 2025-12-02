@@ -237,15 +237,16 @@ const ArrhythmiaModule: React.FC = () => {
     }
     
     // Prepare simulation parameters
+    // Use tissueParams from Redux as the source of truth (it's kept in sync with msModelParams)
     const simulationParams = {
       ...tissueParams,
-      // Explicitly include MS model parameters to ensure they're used in the simulation
-      tau_in: msModelParams.tau_in,
-      tau_out: msModelParams.tau_out,
-      tau_open: msModelParams.tau_open,
-      tau_close: msModelParams.tau_close,
-      v_gate: msModelParams.v_gate,
-      dt: msModelParams.dt,
+      // Explicitly include MS model parameters from Redux to ensure they're used in the simulation
+      tau_in: tissueParams.tau_in,
+      tau_out: tissueParams.tau_out,
+      tau_open: tissueParams.tau_open,
+      tau_close: tissueParams.tau_close,
+      v_gate: tissueParams.v_gate,
+      dt: tissueParams.dt,
       // S1-S2 protocol parameters
       s1Amplitude: s1s2Protocol.s1Amplitude,
       s1Duration: s1s2Protocol.s1Duration,
@@ -420,12 +421,22 @@ const ArrhythmiaModule: React.FC = () => {
     const presetParams = MS_CELL_PRESETS[presetName];
     
     if (presetParams) {
-      // Create new params object by merging current params with preset params
-      const newParams = { ...msModelParams, ...presetParams };
-      setMsModelParams(newParams);
+      // Merge preset params with current tissue params from Redux to preserve tissue-specific params
+      // Presets are Partial<MsParams>, so we need to merge with current values
+      const newMsParams: MsParams = { 
+        tau_in: presetParams.tau_in ?? tissueParams.tau_in,
+        tau_out: presetParams.tau_out ?? tissueParams.tau_out,
+        tau_open: presetParams.tau_open ?? tissueParams.tau_open,
+        tau_close: presetParams.tau_close ?? tissueParams.tau_close,
+        v_gate: presetParams.v_gate ?? tissueParams.v_gate,
+        dt: tissueParams.dt  // Preserve dt from current params (presets don't include dt)
+      };
       
-      // Update the tissue params in the Redux store
-      dispatch(updateTissueParams(newParams));
+      // Update local state immediately for responsive UI
+      setMsModelParams(newMsParams);
+      
+      // Update the tissue params in the Redux store (this will preserve tissue-specific params)
+      dispatch(updateTissueParams(newMsParams));
     }
   };
   

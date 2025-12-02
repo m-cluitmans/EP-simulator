@@ -72,8 +72,8 @@ const useArrhythmiaSimulation = () => {
       
       console.log("useArrhythmiaSimulation: Starting simulation with parameters", params);
       
-      // Run the simulation in smaller steps to keep the UI responsive
-      const simulationResults = simulateArrhythmia(params, (progress) => {
+      // Run the simulation asynchronously - it now yields control periodically to prevent browser warnings
+      const simulationResults = await simulateArrhythmia(params, (progress) => {
         setProgress(progress);
         
         // Calculate estimated time remaining

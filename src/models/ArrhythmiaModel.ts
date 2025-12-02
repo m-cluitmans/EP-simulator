@@ -330,12 +330,24 @@ export function detectConductionBlock(results: TissueSimulationResults): {
 }
 
 /**
- * Simulate arrhythmia mechanisms
+ * Helper function to yield control back to the browser
+ * This prevents the "page unresponsive" warning
  */
-export function simulateArrhythmia(
+function yieldToBrowser(): Promise<void> {
+  return new Promise(resolve => {
+    // Use setTimeout(0) to yield control to the browser event loop
+    setTimeout(resolve, 0);
+  });
+}
+
+/**
+ * Simulate arrhythmia mechanisms
+ * Now runs asynchronously to prevent browser from becoming unresponsive
+ */
+export async function simulateArrhythmia(
   params: ArrhythmiaSimulationParams & { fibrosisSeed?: number },
   progressCallback?: (progress: number) => void
-): ArrhythmiaResults {
+): Promise<ArrhythmiaResults> {
   console.log("ArrhythmiaModel: starting simulation with params", params);
   
   // Warn about long simulations
@@ -407,9 +419,18 @@ export function simulateArrhythmia(
   snapshots.push({...tissue});
   
   // Optimize for large simulations by dynamically adjusting the progress callback frequency
+  // Update progress more frequently (every 1% of steps) for smoother progress bar
   const progressUpdateFrequency = Math.max(1, Math.floor(numSteps / 100));
   
-  // Simulate
+  // Batch size for yielding control to browser (process this many steps before yielding)
+  // Smaller batches = more responsive UI but slightly slower simulation
+  // Larger batches = faster simulation but less responsive UI
+  // For long simulations, use larger batches; for short ones, use smaller batches
+  const batchSize = optimizedParams.simulationDuration > 1000 
+    ? Math.max(10, Math.min(100, Math.floor(numSteps / 200)))
+    : Math.max(5, Math.min(50, Math.floor(numSteps / 300)));
+  
+  // Simulate asynchronously, yielding control periodically
   for (let step = 0; step < numSteps; step++) {
     // Current time
     const currentTime = step * optimizedParams.dt;
@@ -500,9 +521,19 @@ export function simulateArrhythmia(
       }
     }
     
-    // Report progress
+    // Report progress more frequently for better UX
     if (progressCallback && step % progressUpdateFrequency === 0) {
       progressCallback((step / numSteps) * 100);
+    }
+    
+    // Yield control to browser every batchSize steps to prevent "unresponsive" warning
+    if (step > 0 && step % batchSize === 0) {
+      await yieldToBrowser();
+      
+      // Also update progress when yielding to keep UI responsive
+      if (progressCallback) {
+        progressCallback((step / numSteps) * 100);
+      }
     }
   }
   

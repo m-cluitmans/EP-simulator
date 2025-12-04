@@ -42,7 +42,12 @@ const CellModule: React.FC = () => {
     amplitude: 1.0,
     duration: 1.0,
     startTime: 5.0,
-    timeSpan: 500
+    timeSpan: 500,
+    // S2 stimulus parameters (optional)
+    s2Enabled: false,
+    s2Amplitude: 1.0,
+    s2Duration: 1.0,
+    s2StartTime: 200.0
   });
   
   const [highlightPhases, setHighlightPhases] = useState(true);
@@ -120,7 +125,12 @@ const CellModule: React.FC = () => {
       stimulusFn: {
         amplitude: stimulusParams.amplitude,
         duration: stimulusParams.duration,
-        start: stimulusParams.startTime
+        start: stimulusParams.startTime,
+        // S2 stimulus parameters
+        s2Enabled: stimulusParams.s2Enabled,
+        s2Amplitude: stimulusParams.s2Amplitude,
+        s2Duration: stimulusParams.s2Duration,
+        s2Start: stimulusParams.s2StartTime
       }
     };
     
@@ -445,6 +455,119 @@ const CellModule: React.FC = () => {
                   />
                   <span className="text-sm text-gray-500 ml-2">1000</span>
                 </div>
+              </div>
+              
+              {/* S2 Stimulus (Optional) */}
+              <div className="border-t pt-4 mt-4">
+                <div className="flex items-center mb-3">
+                  <input
+                    id="s2-enabled"
+                    type="checkbox"
+                    checked={stimulusParams.s2Enabled}
+                    onChange={(e) => setStimulusParams(prev => ({ ...prev, s2Enabled: e.target.checked }))}
+                    className="h-4 w-4 text-primary rounded"
+                  />
+                  <EnhancedTooltip content={
+                    <div>
+                      <div className="font-bold mb-1">S2 Stimulus (Premature Stimulus)</div>
+                      <div className="mb-2">Enable a second stimulus to study refractory properties. The S1-S2 protocol is used to probe how the cell responds to premature stimulation at different coupling intervals.</div>
+                      <div className="text-xs text-gray-500">Clinical relevance: Used to assess vulnerability to arrhythmias</div>
+                    </div>
+                  }>
+                    <label htmlFor="s2-enabled" className="ml-2 font-medium text-gray-700 cursor-pointer">
+                      Enable S2 Stimulus (Premature)
+                    </label>
+                  </EnhancedTooltip>
+                </div>
+                
+                {stimulusParams.s2Enabled && (
+                  <div className="space-y-4 pl-2 border-l-2 border-primary/30">
+                    <div>
+                      <EnhancedTooltip content={
+                        <div>
+                          <div className="font-bold mb-1">S2 Amplitude</div>
+                          <div className="mb-2">Strength of the premature (S2) stimulus. Higher values make it easier to capture the cell.</div>
+                        </div>
+                      }>
+                        <label htmlFor="s2-amplitude" className="block font-medium text-gray-700 mb-1">
+                          S2 Amplitude: {stimulusParams.s2Amplitude.toFixed(1)}
+                        </label>
+                      </EnhancedTooltip>
+                      <div className="flex items-center">
+                        <span className="text-sm text-gray-500 mr-2">0.5</span>
+                        <input
+                          id="s2-amplitude"
+                          type="range"
+                          min="0.5"
+                          max="2.0"
+                          step="0.1"
+                          value={stimulusParams.s2Amplitude}
+                          onChange={(e) => handleStimulusParamChange('s2Amplitude', parseFloat(e.target.value))}
+                          className="w-full"
+                        />
+                        <span className="text-sm text-gray-500 ml-2">2.0</span>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <EnhancedTooltip content={
+                        <div>
+                          <div className="font-bold mb-1">S2 Duration</div>
+                          <div className="mb-2">Duration of the S2 stimulus pulse.</div>
+                        </div>
+                      }>
+                        <label htmlFor="s2-duration" className="block font-medium text-gray-700 mb-1">
+                          S2 Duration: {stimulusParams.s2Duration.toFixed(1)}
+                        </label>
+                      </EnhancedTooltip>
+                      <div className="flex items-center">
+                        <span className="text-sm text-gray-500 mr-2">0.5</span>
+                        <input
+                          id="s2-duration"
+                          type="range"
+                          min="0.5"
+                          max="5.0"
+                          step="0.1"
+                          value={stimulusParams.s2Duration}
+                          onChange={(e) => handleStimulusParamChange('s2Duration', parseFloat(e.target.value))}
+                          className="w-full"
+                        />
+                        <span className="text-sm text-gray-500 ml-2">5.0</span>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <EnhancedTooltip content={
+                        <div>
+                          <div className="font-bold mb-1">S2 Coupling Interval (Start Time)</div>
+                          <div className="mb-2">When to apply the S2 stimulus. The coupling interval (S2 start - S1 start) determines whether the cell has recovered enough to respond.</div>
+                          <div className="text-xs text-gray-500">Try values during refractory period to see capture failure</div>
+                        </div>
+                      }>
+                        <label htmlFor="s2-start" className="block font-medium text-gray-700 mb-1">
+                          S2 Start Time: {stimulusParams.s2StartTime.toFixed(0)}
+                        </label>
+                      </EnhancedTooltip>
+                      <div className="flex items-center">
+                        <span className="text-sm text-gray-500 mr-2">50</span>
+                        <input
+                          id="s2-start"
+                          type="range"
+                          min="50"
+                          max="500"
+                          step="10"
+                          value={stimulusParams.s2StartTime}
+                          onChange={(e) => handleStimulusParamChange('s2StartTime', parseFloat(e.target.value))}
+                          className="w-full"
+                        />
+                        <span className="text-sm text-gray-500 ml-2">500</span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Coupling interval: {(stimulusParams.s2StartTime - stimulusParams.startTime).toFixed(0)} ms
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             

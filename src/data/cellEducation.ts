@@ -151,4 +151,27 @@ export const stimulusParameterTooltips = {
     content: `Controls when the stimulus is applied. Adjust to see effects on different phases of the action potential. Range: 0-50`,
     physiological: 'Corresponds to timing of electrical stimulation'
   }
+};
+
+export const s2StimulusTooltips = {
+  s2Enabled: {
+    title: 'S2 Stimulus (Premature Stimulus)',
+    content: `Enable a second stimulus to study refractory properties. The S1-S2 protocol applies a conditioning stimulus (S1) followed by a premature stimulus (S2) at a variable coupling interval.`,
+    physiological: 'Used clinically to assess vulnerability to arrhythmias and determine refractory periods'
+  },
+  s2Amplitude: {
+    title: 'S2 Amplitude',
+    content: `Strength of the premature (S2) stimulus. Higher values make it easier to capture the cell even during partial recovery. Range: 0.5-2.0`,
+    physiological: 'Higher stimulus strength can overcome partial refractoriness'
+  },
+  s2Duration: {
+    title: 'S2 Duration',
+    content: `Duration of the S2 stimulus pulse. Longer durations deliver more charge. Range: 0.5-5.0`,
+    physiological: 'Similar to S1 duration but applied during recovery phase'
+  },
+  s2StartTime: {
+    title: 'S2 Coupling Interval',
+    content: `When to apply the S2 stimulus. The coupling interval (S2 start - S1 start) determines whether the cell has recovered enough to respond. Short intervals during the absolute refractory period will fail to capture. Range: 50-500`,
+    physiological: 'Determines if stimulus falls during absolute, relative, or supernormal period'
+  }
 }; 

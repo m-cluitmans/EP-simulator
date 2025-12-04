@@ -141,6 +141,75 @@ export function applyStimulus(
 }
 
 /**
+ * S1-S2 stimulus protocol parameters
+ */
+export interface S1S2StimulusParams {
+  s1Amplitude: number;
+  s1Duration: number;
+  s1StartTime: number;
+  s2Enabled: boolean;
+  s2Amplitude: number;
+  s2Duration: number;
+  s2StartTime: number;
+}
+
+/**
+ * Default S1-S2 stimulus parameters
+ */
+export const DEFAULT_S1S2_PARAMS: S1S2StimulusParams = {
+  s1Amplitude: 1.0,
+  s1Duration: 1.0,
+  s1StartTime: 5.0,
+  s2Enabled: false,
+  s2Amplitude: 1.0,
+  s2Duration: 1.0,
+  s2StartTime: 200.0
+};
+
+/**
+ * Apply an S1-S2 stimulus protocol to the cell model
+ * 
+ * S1-S2 protocol is used to study refractory properties and vulnerability to reentry.
+ * S1 is the conditioning stimulus that initiates an action potential.
+ * S2 is a premature stimulus applied at various coupling intervals to probe recovery.
+ * 
+ * @param baseParams Base model parameters
+ * @param s1s2Params S1-S2 stimulus parameters
+ * @param timeSpan Total simulation time
+ * @returns Results with the applied S1-S2 protocol
+ */
+export function applyS1S2Stimulus(
+  baseParams: MsParams = DEFAULT_MS_PARAMS,
+  s1s2Params: S1S2StimulusParams = DEFAULT_S1S2_PARAMS,
+  timeSpan: number = 500
+): MsResults {
+  const {
+    s1Amplitude,
+    s1Duration,
+    s1StartTime,
+    s2Enabled,
+    s2Amplitude,
+    s2Duration,
+    s2StartTime
+  } = s1s2Params;
+  
+  // Create stimulus function that applies S1 and optionally S2
+  const stimulusFn = (t: number): number => {
+    // S1 stimulus
+    if (t >= s1StartTime && t < s1StartTime + s1Duration) {
+      return s1Amplitude;
+    }
+    // S2 stimulus (only if enabled)
+    if (s2Enabled && t >= s2StartTime && t < s2StartTime + s2Duration) {
+      return s2Amplitude;
+    }
+    return 0;
+  };
+  
+  return simulateMitchellSchaeffer(baseParams, timeSpan, 0, 1, stimulusFn);
+}
+
+/**
  * Calculate the Action Potential Duration (APD) from simulation results.
  * APD is defined as the time between activation (crossing a threshold during depolarization)
  * and repolarization (crossing the same threshold during recovery).

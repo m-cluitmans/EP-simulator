@@ -19,6 +19,11 @@ interface CellSimulationMessage {
     amplitude: number;
     duration: number;
     start: number;
+    // Optional S2 stimulus parameters
+    s2Enabled?: boolean;
+    s2Amplitude?: number;
+    s2Duration?: number;
+    s2Start?: number;
   };
 }
 
@@ -96,10 +101,24 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
       // Create stimulus function if provided
       let stimulus = undefined;
       if (data.stimulusFn) {
-        const { amplitude = 1, duration = 1, start = 5 } = data.stimulusFn;
+        const { 
+          amplitude = 1, 
+          duration = 1, 
+          start = 5,
+          s2Enabled = false,
+          s2Amplitude = 1,
+          s2Duration = 1,
+          s2Start = 200
+        } = data.stimulusFn;
+        
         stimulus = (t: number): number => {
+          // S1 stimulus
           if (t >= start && t < start + duration) {
             return amplitude;
+          }
+          // S2 stimulus (only if enabled)
+          if (s2Enabled && t >= s2Start && t < s2Start + s2Duration) {
+            return s2Amplitude;
           }
           return 0;
         };

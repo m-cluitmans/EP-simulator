@@ -538,20 +538,34 @@ const ArrhythmiaModule: React.FC = () => {
             
             {/* Fibrosis Seed Control */}
             <div className="mt-4 border-t border-gray-200 pt-4">
-              <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Fibrosis Seed: {fibrosisSeed}
-                </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Fibrosis Seed
+              </label>
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="number"
+                  className="flex-1 px-3 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  value={fibrosisSeed}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value, 10);
+                    if (!isNaN(value) && value >= 0) {
+                      setFibrosisSeed(value);
+                    }
+                  }}
+                  disabled={fibrosisPattern === FibrosisPattern.NONE}
+                  min={0}
+                  placeholder="Enter seed value"
+                />
                 <button 
-                  className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded"
+                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded whitespace-nowrap"
                   onClick={regenerateFibrosisSeed}
                   disabled={fibrosisPattern === FibrosisPattern.NONE}
                 >
-                  Regenerate
+                  Random
                 </button>
               </div>
               <p className="text-xs text-gray-500">
-                Using the same seed will produce identical fibrosis patterns, allowing for direct comparisons.
+                Enter a specific seed or click Random. Using the same seed produces identical fibrosis patterns for direct comparisons.
               </p>
             </div>
           </div>

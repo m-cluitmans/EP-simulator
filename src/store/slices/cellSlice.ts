@@ -70,7 +70,7 @@ export const cellSlice = createSlice({
             tau_in: 0.3,
             tau_out: 12.0,    // Slower repolarization = longer APD
             tau_open: 120.0,
-            tau_close: 80.0,
+            tau_close: 150.0, // Slower h inactivation = longer plateau
             v_gate: 0.13
           };
           break;
@@ -81,7 +81,7 @@ export const cellSlice = createSlice({
             tau_in: 0.3,
             tau_out: 3.0,     // Faster repolarization = shorter APD
             tau_open: 120.0,
-            tau_close: 80.0,
+            tau_close: 30.0,  // Faster h inactivation = shorter plateau
             v_gate: 0.13
           };
           break;
